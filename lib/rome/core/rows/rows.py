@@ -216,9 +216,12 @@ def construct_rows(models, criterions, hints, session=None, request_uuid=None, o
     part4_starttime = current_milli_time()
 
     """ Filtering tuples (cartesian product) """
+    keytuple_labels = None
     for product in tuples:
         if len(product) > 0:
-            row = KeyedTuple(product, labels=labels)
+            if keytuple_labels is None:
+                keytuple_labels = map(lambda e: e["_nova_classname"], product)
+            row = KeyedTuple(product, labels=keytuple_labels)
             rows += [extract_sub_row(row, model_set, labels)]
     part5_starttime = current_milli_time()
     deconverter = get_decoder(request_uuid=request_uuid)

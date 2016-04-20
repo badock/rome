@@ -245,27 +245,6 @@ class Query:
         _criterions = self._criterions[:]
         _hints = self._hints[:]
         for arg in args:
-
-            """ The following block has been written to handle the following kind of call to 'join':
-
-                    query.join("_metadata")
-
-                where the joining class is not specified but rather a relationship name.
-            """
-            # if type(arg) is str and len(args) == 1:
-            #     if len(self._models) == 0:
-            #         continue
-            #     candidate_model = self._models[0]._model
-            #     if not hasattr(candidate_model, arg):
-            #         continue
-            #     candidate_attribute = getattr(candidate_model, arg)
-            #     if not hasattr(candidate_attribute, "property"):
-            #         continue
-            #     if not type(candidate_attribute.property).__name__ == "RelationshipProperty":
-            #         continue
-            #     remote_model = candidate_attribute.property.argument
-            #     return self.join(remote_model)
-
             if not isinstance(arg, list) and not isinstance(arg, tuple):
                 tuples = [arg]
             else:
@@ -311,10 +290,15 @@ class Query:
                 else:
                     # We should have a string refering to an attribute of the Class
                     if len(self._models) > 0:
+                        if arg is not None and hasattr(arg, "key"):
+                            arg = arg.key
                         relationship_field = getattr(self._models[0]._model, arg)
                         joining_class = None
                         if hasattr(relationship_field, "property"):
                             joining_class = relationship_field.property.argument
+                        # if hasattr(relationship_field, "expression"):
+                        #     expression = relationship_field.expression
+                        #     return self.join(joining_class, expression)
                         return self.join(joining_class)
         args = _models + _func + _criterions + _hints + self._initial_models + _orders
         kwargs = {}
