@@ -17,6 +17,12 @@ class Configuration(object):
     def host(self):
         return self.config.get('Rome', 'host')
 
+    def database_caching(self):
+        try:
+            return self.config.getboolean('Rome', 'database_caching')
+        except ConfigParser.NoOptionError:
+            return True
+
     def port(self):
         return self.config.getint('Rome', 'port')
 

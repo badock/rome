@@ -9,15 +9,10 @@ from redlock import Redlock as Redlock
 import ujson
 from Queue import Queue
 
-
-# import eventlet
-# eventlet.monkey_patch(thread=True)
-import multiprocessing
-# import thread
-# reload(thread)
 import os
 
 PARALLEL_STRUCTURES = {}
+
 
 def easy_parallelize_multiprocessing(f, sequence):
     if not "eval_pool" in PARALLEL_STRUCTURES:
@@ -48,6 +43,9 @@ def easy_parallelize_gevent(f, sequence):
     return result
 
 
+DATABASE_CACHE = {}
+
+
 def easy_parallelize_eventlet(f, sequence):
     import eventlet
     green_pool_size = len(sequence) + 1
@@ -62,21 +60,7 @@ def easy_parallelize_eventlet(f, sequence):
     pool.waitall()
     return result
 
-
-# def easy_parallelize(f, sequence):
-#     # try:
-#     #     result = easy_parallelize_multiprocessing(f, sequence)
-#     #     # easy_parallelize_eventlet(f, sequence)
-#     #     print("using multiprocessing")
-#     #     return result
-#     # except:
-#     return easy_parallelize_sequence(f, sequence)
-#     # return easy_parallelize_gevent(f, sequence)
-#     # return easy_parallelize_eventlet(f, sequence)
-
-
 easy_parallelize = easy_parallelize_sequence
-# easy_parallelize = lambda x, y: []
 
 def chunks(l, n):
     for i in xrange(0, len(l), n):
@@ -121,6 +105,7 @@ class RedisDriver(lib.rome.driver.database_driver.DatabaseDriverInterface):
         """"""
         redis_key = "%s:id:%s" % (tablename, key)
         self.redis_client.hdel(tablename, redis_key)
+        self.incr_version_number(tablename)
         pass
 
     def next_key(self, tablename):
@@ -134,6 +119,16 @@ class RedisDriver(lib.rome.driver.database_driver.DatabaseDriverInterface):
         keys = self.redis_client.hkeys(tablename)
         return sorted(keys)
 
+    def incr_version_number(self, tablename):
+        """"""
+        version_number = self.redis_client.incr("version_number:%s" % (tablename), 1)
+        return version_number
+
+    def get_version_number(self, tablename):
+        """"""
+        version_number = self.redis_client.get("version_number:%s" % (tablename))
+        return version_number
+
     def put(self, tablename, key, value, secondary_indexes=[]):
         """"""
 
@@ -145,6 +140,7 @@ class RedisDriver(lib.rome.driver.database_driver.DatabaseDriverInterface):
             fetched = self.redis_client.sadd("sec_index:%s:%s:%s" % (tablename, secondary_index, secondary_value), "%s:id:%s" % (tablename, key))
         result = value if fetched else None
         result = convert_unicode_dict_to_utf8(result)
+        self.incr_version_number(tablename)
         return result
 
     def get(self, tablename, key, hint=None):
@@ -179,6 +175,15 @@ class RedisDriver(lib.rome.driver.database_driver.DatabaseDriverInterface):
 
     def getall(self, tablename, hints=[]):
         """"""
+
+        # Test if a copy of the data is in the database cache
+        if get_config().database_caching():
+            version_number = self.get_version_number(tablename)
+            hashcode = hash(str(hints))
+            hash_key = "%s_%s_%s" % (tablename, version_number, hashcode)
+            if hash_key in DATABASE_CACHE:
+                return DATABASE_CACHE[hash_key]
+
         if len(hints) == 0:
             keys = self.keys(tablename)
         else:
@@ -189,7 +194,12 @@ class RedisDriver(lib.rome.driver.database_driver.DatabaseDriverInterface):
             for sec_key in sec_keys:
                 keys += self.redis_client.smembers(sec_key)
         keys = list(set(keys))
-        return self._resolve_keys(tablename, keys)
+        values = self._resolve_keys(tablename, keys)
+
+        # Put the resulting data is in the database cache
+        if get_config().database_caching():
+            DATABASE_CACHE[hash_key] = values
+        return values
 
 
 class RedisClusterDriver(lib.rome.driver.database_driver.DatabaseDriverInterface):
@@ -208,6 +218,7 @@ class RedisClusterDriver(lib.rome.driver.database_driver.DatabaseDriverInterface
         """"""
         redis_key = "%s:id:%s" % (tablename, key)
         self.redis_client.hdel(tablename, redis_key)
+        self.incr_version_number(tablename)
         pass
 
     def next_key(self, tablename):
@@ -221,6 +232,16 @@ class RedisClusterDriver(lib.rome.driver.database_driver.DatabaseDriverInterface
         keys = self.redis_client.hkeys(tablename)
         return sorted(keys)
 
+    def incr_version_number(self, tablename):
+        """"""
+        version_number = self.redis_client.incr("version_number:%s" % (tablename), 1)
+        return version_number
+
+    def get_version_number(self, tablename):
+        """"""
+        version_number = self.redis_client.get("version_number:%s" % (tablename))
+        return version_number
+
     def put(self, tablename, key, value, secondary_indexes=[]):
         """"""
 
@@ -232,6 +253,7 @@ class RedisClusterDriver(lib.rome.driver.database_driver.DatabaseDriverInterface
             fetched = self.redis_client.sadd("sec_index:%s:%s:%s" % (tablename, secondary_index, secondary_value), "%s:id:%s" % (tablename, key))
         result = value if fetched else None
         result = convert_unicode_dict_to_utf8(result)
+        self.incr_version_number(tablename)
         return result
 
     def get(self, tablename, key, hint=None):
@@ -266,6 +288,15 @@ class RedisClusterDriver(lib.rome.driver.database_driver.DatabaseDriverInterface
 
     def getall(self, tablename, hints=[]):
         """"""
+
+        # Test if a copy of the data is in the database cache
+        if get_config().database_caching():
+            version_number = self.get_version_number(tablename)
+            hashcode = hash(str(hints))
+            hash_key = "%s_%s_%s" % (tablename, version_number, hashcode)
+            if hash_key in DATABASE_CACHE:
+                return DATABASE_CACHE[hash_key]
+
         if len(hints) == 0:
             keys = self.keys(tablename)
         else:
@@ -276,4 +307,8 @@ class RedisClusterDriver(lib.rome.driver.database_driver.DatabaseDriverInterface
             for sec_key in sec_keys:
                 keys += self.redis_client.smembers(sec_key)
         keys = list(set(keys))
-        return self._resolve_keys(tablename, keys)
+        values = self._resolve_keys(tablename, keys)
+        # Put the resulting data is in the database cache
+        if get_config().database_caching():
+            DATABASE_CACHE[hash_key] = values
+        return values

@@ -35,4 +35,5 @@ def create_mock_data(network_count=3, fixed_ip_count=200):
 if __name__ == '__main__':
 
     logging.getLogger().setLevel(logging.DEBUG)
+    # create_mock_data(40, 40)
     create_mock_data(40, 40)

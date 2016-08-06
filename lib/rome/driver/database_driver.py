@@ -32,16 +32,22 @@ driver = None
 
 def build_driver():
     config = get_config()
+    backend = config.backend()
+    # backend = "etcd"
 
-    if config.backend() == "redis":
+    if backend == "redis":
         import lib.rome.driver.redis.driver
         if config.redis_cluster_enabled():
             return lib.rome.driver.redis.driver.RedisClusterDriver()
         else:
             return lib.rome.driver.redis.driver.RedisDriver()
-    if config.backend() == "cassandra":
+    elif backend == "cassandra":
         import lib.rome.driver.cassandra.driver
         return lib.rome.driver.cassandra.driver.CassandraDriver()
+
+    if backend == "etcd" or True:
+        import lib.rome.driver.etcd.driver
+        return lib.rome.driver.etcd.driver.EtcdDriver()
     else:
         import lib.rome.driver.riak.driver
         return lib.rome.driver.riak.driver.MapReduceRiakDriver()
