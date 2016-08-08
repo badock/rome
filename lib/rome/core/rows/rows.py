@@ -12,7 +12,7 @@ from lib.rome.core.dataformat import get_decoder
 from lib.rome.core.lazy import LazyValue
 from lib.rome.core.utils import get_objects, is_novabase
 
-from tuples import default_panda_building_tuples as simple_building_tuples
+# from tuples import default_panda_building_tuples as join_building_tuples
 from tuples import sql_panda_building_tuples as join_building_tuples
 
 

@@ -36,7 +36,7 @@ def rename_x(df):
     fixed_columns = map(lambda x: re.sub("_x$", "", x), cols)
     df.columns = fixed_columns
 
-def default_panda_building_tuples(lists_results, labels, criterions, hints=[]):
+def default_panda_building_tuples(lists_results, labels, criterions, hints=[], metadata={}, order_by=None):
 
     """ Build tuples (join operator in relational algebra). """
 
@@ -284,7 +284,9 @@ def sql_panda_building_tuples(lists_results, labels, criterions, hints=[], metad
 
     """ Preparing Dataframes. """
     env = {}
+    dataframe_all = pd.DataFrame(data=list_results)
     for (label, list_results) in zip(labels, lists_results):
+        current_dataframe_all = dataframe_all
         if order_by:
             # <v2>
             order_by_current_table = filter(lambda x: (label+".") in str(x), order_by_clauses)
@@ -293,12 +295,11 @@ def sql_panda_building_tuples(lists_results, labels, criterions, hints=[], metad
                 fields_columns = map(lambda x: x.split(".")[1], fields)
                 orders = map(lambda x: str(x).split(" ")[1], order_by_current_table)
                 orders_boolean = map(lambda x: x=="ASC", orders)
-                list_results = sorted(list_results, key=itemgetter(*fields_columns), reverse=orders_boolean[0])
+                local_list_results = sorted(list_results, key=itemgetter(*fields_columns), reverse=orders_boolean[0])
+                current_dataframe_all = pd.DataFrame(data=local_list_results)
             # </v2>
-        # The following line is slow
-        dataframe = pd.DataFrame(data=list_results)
         try:
-            dataframe = dataframe[needed_columns[label]]
+            dataframe = current_dataframe_all[needed_columns[label]]
         except Exception as e:
             # traceback.print_exc(e)
             return []
