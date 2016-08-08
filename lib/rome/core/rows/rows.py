@@ -86,7 +86,7 @@ def extract_models(l):
     return result
 
 
-def extract_sub_row(row, selectables, labels):
+def extract_sub_row(row, selectables, labels, default_tablename):
     """Adapt a row result to the expectation of sqlalchemy.
     :param row: a list of python objects
     :param selectables: a list entity class
@@ -95,12 +95,15 @@ def extract_sub_row(row, selectables, labels):
     """
     if len(selectables) > 1:
         product = []
-        for label in labels:
-            product = product + [get_attribute(row, label)]
-        return KeyedTuple(product, labels=labels)
+        value = {}
+        for x in zip(labels, row):
+            label = x[0]
+            v = x[1]
+            product = product + [v]
+            value[label] = v
+        return value
     else:
-        model_name = find_table_name(selectables[0]._model)
-        return get_attribute(row, model_name)
+        return row[0]
 
 
 def intersect(b1, b2):
@@ -221,13 +224,12 @@ def construct_rows(models, criterions, hints, session=None, request_uuid=None, o
         if len(product) > 0:
             if keytuple_labels is None:
                 keytuple_labels = map(lambda e: e["_nova_classname"], product)
-            row = KeyedTuple(product, labels=keytuple_labels)
-            rows += [extract_sub_row(row, model_set, labels)]
+            row = product
+            rows += [extract_sub_row(row, model_set, labels, tablename)]
     part5_starttime = current_milli_time()
-    deconverter = get_decoder(request_uuid=request_uuid)
+    decoder = get_decoder(request_uuid=request_uuid)
 
     """ Reordering tuples (+ selecting attributes) """
-    final_rows = []
     showable_selection = [x for x in models if (not x.is_hidden) or x._is_function]
     part6_starttime = current_milli_time()
 
@@ -240,32 +242,31 @@ def construct_rows(models, criterions, hints, session=None, request_uuid=None, o
                 final_row += [value]
             else:
                 final_row += [None]
-        final_row = map(lambda x: deconverter.desimplify(x), final_row)
+        final_row = map(lambda x: decoder.desimplify(x), final_row)
         return [final_row]
     else:
-        for row in rows:
-            final_row = []
-            for selection in showable_selection:
+        first_row = rows[0] if len(rows) > 0 else {}
+        first_row_is_novabase = is_novabase(first_row)
+        first_row_has_tablename_attribute = has_attribute(first_row, tablename)
+        columns_oriented_values = []
+        for selection in showable_selection:
+            def generate_row_operation(selection, tablename, request_uuid):
                 if selection._is_function:
-                    value = selection._function._function(rows)
-                    final_row += [value]
+                    return selection._function._function
                 else:
-                    current_table_name = find_table_name(selection._model)
-                    key = current_table_name
-                    if not is_novabase(row) and has_attribute(row, key):
-                        value = get_attribute(row, key)
+                    key = tablename
+                    if not first_row_is_novabase and first_row_has_tablename_attribute:
+                        return lambda r: wrap_with_lazy_value(get_attribute(r, key), request_uuid)
                     else:
-                        value = row
-                    if value is not None:
                         if selection._attributes != "*":
-                            final_row += [get_attribute(value, selection._attributes)]
+                            return lambda r: wrap_with_lazy_value(get_attribute(r, selection._attributes), request_uuid)
                         else:
-                            final_row += [value]
-            final_row = map(lambda x: wrap_with_lazy_value(x, request_uuid=request_uuid), final_row)
-            if len(showable_selection) == 1:
-                final_rows += final_row
-            else:
-                final_rows += [final_row]
+                            return lambda r: wrap_with_lazy_value(r, request_uuid)
+            row_operation = generate_row_operation(selection, tablename, request_uuid)
+            columns_oriented_values += [map(row_operation, rows)]
+    final_rows = list(map(list, zip(*columns_oriented_values)))
+    if len(showable_selection) == 1:
+        final_rows = map(lambda x: x[0], final_rows)
     part7_starttime = current_milli_time()
 
     query_information = """{"building_query": %s, "loading_objects": %s, "building_tuples": %s, "filtering_tuples": %s, "reordering_columns": %s, "selecting_attributes": %s, "description": "%s", "timestamp": %i}""" % (

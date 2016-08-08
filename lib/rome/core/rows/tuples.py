@@ -290,14 +290,12 @@ def sql_panda_building_tuples(lists_results, labels, criterions, hints=[], metad
             order_by_current_table = filter(lambda x: (label+".") in str(x), order_by_clauses)
             if len(order_by_current_table) > 0:
                 fields = map(lambda x: str(x).split(" ")[0], order_by_current_table)
-                # fields_columns = map(lambda x: x.replace(".", "__"), fields)
                 fields_columns = map(lambda x: x.split(".")[1], fields)
                 orders = map(lambda x: str(x).split(" ")[1], order_by_current_table)
                 orders_boolean = map(lambda x: x=="ASC", orders)
-                # dataframe = dataframe.sort_values(by=fields_columns, ascending=orders_boolean)
                 list_results = sorted(list_results, key=itemgetter(*fields_columns), reverse=orders_boolean[0])
             # </v2>
-
+        # The following line is slow
         dataframe = pd.DataFrame(data=list_results)
         try:
             dataframe = dataframe[needed_columns[label]]
@@ -305,30 +303,6 @@ def sql_panda_building_tuples(lists_results, labels, criterions, hints=[], metad
             # traceback.print_exc(e)
             return []
         dataframe.columns = map(lambda c: "%s__%s" % (label, c), needed_columns[label])
-
-        """ Order data according to order_by parameter. """
-        # if order_by:
-            # # <v1>
-            # order_by_current_table = filter(lambda x: (label+".") in str(x),order_by)
-            # fields = map(lambda x: str(x).split(" ")[0], order_by_current_table)
-            # fields_columns = map(lambda x: x.replace(".", "__"), fields)
-            # orders = map(lambda x: str(x).split(" ")[1], order_by_current_table)
-            # orders_boolean = map(lambda x: x=="ASC", orders)
-            # dataframe = dataframe.sort_values(by=fields_columns, ascending=orders_boolean)
-            # # </v1>
-
-            # # <v2>
-            # from operator import itemgetter
-            # order_by_current_table = filter(lambda x: (label+".") in str(x),order_by)
-            # fields = map(lambda x: str(x).split(" ")[0], order_by_current_table)
-            # # fields_columns = map(lambda x: x.replace(".", "__"), fields)
-            # fields_columns = map(lambda x: x.split(".")[1], fields)
-            # orders = map(lambda x: str(x).split(" ")[1], order_by_current_table)
-            # orders_boolean = map(lambda x: x=="ASC", orders)
-            # # dataframe = dataframe.sort_values(by=fields_columns, ascending=orders_boolean)
-            # sorted(list_results, key=itemgetter(*fields_columns), reverse=orders_boolean[0])
-            # # </v2>
-
         env[label] = dataframe
 
     """ Construct the resulting rows. """
