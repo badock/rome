@@ -10,8 +10,10 @@ from sqlalchemy.sql.expression import BinaryExpression
 from lib.rome.core.rows.rows import get_attribute, has_attribute
 from lib.rome.core.utils import DATE_FORMAT, datetime_to_int
 
+
 def uncapitalize(s):
     return s[:1].lower() + s[1:] if s else ''
+
 
 def get_attribute_reccursively(obj, attr, otherwise=None):
     """ A reccursive getattr function.
@@ -43,6 +45,7 @@ def get_attribute_reccursively(obj, attr, otherwise=None):
     except AttributeError:
         return otherwise
 
+
 class LazyDictionnary:
     """This temporary class is used to make a dict acting like an object. This code can be found at:
         http://stackoverflow.com/questions/1305532/convert-python-dict-to-object
@@ -64,6 +67,7 @@ class LazyDictionnary:
         return self._cache[item]
 
 boolean_expression_str_memory = {}
+
 
 class BooleanExpression(object):
     def __init__(self, operator, *exps):
@@ -267,79 +271,13 @@ class BooleanExpression(object):
 
         return criterion_str
 
-    def evaluate(self, value, additional_parameters={}):
-
-        orig_value = value
-        # construct a dict with the values involved in the expression
-        values_dict = {}
-        if type(value) is not dict:
-            for key in value.keys():
-                try:
-                    s = LazyDictionnary(**value[value.keys().index(key)])
-                    values_dict[key] = s
-                except Exception as e:
-                    print("[BUG] evaluation failed: %s -> %s" % (key, value))
-                    # return False
-        else:
-            values_dict = value
-
-        for key in self.default_value_dict:
-            values_dict[key] = self.default_value_dict[key]
-        final_values_dict = {}
-        for key in values_dict.keys():
-            value = values_dict[key]
-            if key.startswith("id_"):
-                value = int(value)
-            final_values_dict[key] = value
-        for key in values_dict:
-            if key in self.variable_substitution_dict:
-                value = values_dict[key]
-                if key.startswith("id_"):
-                    value = int(value)
-                final_values_dict[self.variable_substitution_dict[key]] = value
-        for expression in self.exps:
-            if type(expression) is BinaryExpression:
-                expression_parts = [expression.right, expression.left]
-                for expression_part in expression_parts:
-                    if hasattr(expression_part, "default") and expression_part.default is not None:
-                        key = str(expression_part).split(".")[0]
-                        attr = str(expression_part).split(".")[1]
-                        if getattr(final_values_dict[key], attr, None) is None:
-                            value = expression_part.default.arg
-                            setattr(final_values_dict[key], attr, value)
-        second_final_values_dict = {}
-        for key in additional_parameters:
-            value = LazyDictionnary(**additional_parameters[key])
-            second_final_values_dict[key] = value
-        for key in final_values_dict:
-            second_final_values_dict[key] = final_values_dict[key]
-        try:
-            result = eval(self.compiled_expression, second_final_values_dict)
-        except:
-            import traceback
-            traceback.print_exc()
-            if self.operator == "NORMAL":
-                return False
-            for exp in self.exps:
-                if exp.evaluate(orig_value):
-                    if self.operator in ["or"]:
-                        return True
-                else:
-                    if self.operator in ["and"]:
-                        return False
-            if self.operator in ["NORMAL", "or"]:
-                return False
-            else:
-                return True
-            pass
-        return result
-
     def __repr__(self):
         if self.operator == "NORMAL":
             return str(self.raw_expression)
         else:
             op = " %s ".lower() % (self.operator)
             return "(%s)" % (op.join(map(lambda x: str(x), self.exps)))
+
 
 class JoiningBooleanExpression(BooleanExpression):
     def __init__(self, operator, *exps):

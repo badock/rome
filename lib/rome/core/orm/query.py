@@ -90,9 +90,15 @@ class Query:
         elif isinstance(arg, BooleanClauseList) or type(arg) == list:
             for clause in arg:
                 if type(clause) == BinaryExpression:
-                    self._criterions += [BooleanExpression("NORMAL", clause)]
+                    criterion = BooleanExpression("NORMAL", clause)
+                    self._criterions += [criterion]
+                    self._extract_hint(criterion)
+                    self._extract_models(criterion)
         elif isinstance(arg, BinaryExpression):
-            self._criterions += [BooleanExpression("NORMAL", arg)]
+            criterion = BooleanExpression("NORMAL", arg)
+            self._criterions += [criterion]
+            self._extract_hint(criterion)
+            self._extract_models(criterion)
         elif hasattr(arg, "is_boolean_expression"):
             self._criterions += [arg]
         else:
@@ -141,12 +147,14 @@ class Query:
         return len(self.all())
 
     def soft_delete(self, synchronize_session=False):
+        count = 0
         for e in self.all():
             try:
                 e.soft_delete()
+                count += 1
             except:
                 pass
-        return self
+        return count
 
     def delete(self, synchronize_session=False):
         for e in self.all():
