@@ -36,4 +36,4 @@ if __name__ == '__main__':
 
     logging.getLogger().setLevel(logging.DEBUG)
     # create_mock_data(40, 40)
-    create_mock_data(150, 150)
+    create_mock_data(40, 40)

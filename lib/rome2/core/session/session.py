@@ -59,9 +59,6 @@ class Session(object):
             if not self.already_in(obj, self.session_objects_add):
                 self.session_objects_add += [obj]
 
-    def add_all(self, objs):
-        return self.add(*objs)
-
     def update(self, obj):
         if self.already_in(obj, self.session_objects_add):
             filtered = filter(lambda x: ("%s" % (x)) != "%s" % (obj), self.session_objects_add)

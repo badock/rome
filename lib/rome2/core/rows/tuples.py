@@ -1,16 +1,18 @@
 import re
-from lib.rome.core.models import get_model_classname_from_tablename
+from lib.rome2.core.models import get_model_classname_from_tablename
 import pandas as pd
 import math
 import traceback
 import datetime
 from operator import itemgetter
 
-from lib.rome.core.utils import DATE_FORMAT, datetime_to_int
+from lib.rome2.core.utils import DATE_FORMAT, datetime_to_int
+
 
 def correct_boolean_int(expression_str):
     expression_str = expression_str.replace("___deleted == 0", "___deleted != 1")
     return expression_str
+
 
 def correct_expression_containing_none(expression_str):
     # Use trick found here: http://stackoverflow.com/questions/26535563/querying-for-nan-and-other-names-in-pandas
@@ -193,9 +195,33 @@ def default_panda_building_tuples(lists_results, labels, criterions, hints=[], m
     return rows
 
 
-def sql_panda_building_tuples(lists_results, labels, criterions, hints=[], metadata={}, order_by=None):
+def extract_joining_pairs(criterion):
+    word_pattern = "[_a-zA-Z0-9]+"
+    joining_criterion_pattern = "\"%s\".%s[ ]*=[ ]*\"%s\".%s" % (word_pattern, word_pattern, word_pattern, word_pattern)
+    m = re.search(joining_criterion_pattern, criterion)
+    if m is not None:
+        joining_pair = criterion.split("=")
+        joining_pair = map(lambda x: x.strip().replace("\"", ""), joining_pair)
+        joining_pair = sorted(joining_pair)
+        return [joining_pair]
+    else:
+        return []
+
+
+def extract_nonjoining_criterions(criterion):
+    word_pattern = "[_a-zA-Z0-9]+"
+    joining_criterion_pattern = "%s\.%s == %s\.%s" % (word_pattern, word_pattern, word_pattern, word_pattern)
+    m = re.search(joining_criterion_pattern, criterion)
+    if m is None:
+        return []
+    else:
+        return m
+
+
+def sql_panda_building_tuples(lists_results, criteria, joining_criteria, hints=[], metadata={}, order_by=None):
 
     """ Build tuples (join operator in relational algebra). """
+    labels = lists_results.keys()
 
     """ Initializing data indexes. """
     table_id_index = {}
@@ -207,8 +233,8 @@ def sql_panda_building_tuples(lists_results, labels, criterions, hints=[], metad
         i += 1
 
     i = 0
-    for (label, list_results) in zip(labels, lists_results):
-        for result in list_results:
+    for (label, k) in zip(labels, lists_results):
+        for result in lists_results[k]:
             id = result["id"]
             table_id_index[label][id] = result
             pass
@@ -220,27 +246,53 @@ def sql_panda_building_tuples(lists_results, labels, criterions, hints=[], metad
     _joining_pairs_str_index = {}
     needed_columns = {}
     _nonjoining_criterions_str_index = {}
-    for criterion in criterions:
-        _joining_pairs = criterion.extract_joining_pairs()
-        _nonjoining_criterions = criterion.extract_nonjoining_criterions()
 
-        _nonjoining_criterions_str = str(_nonjoining_criterions)
+    adapted_nonpanda_criteria = []
+    adapted_panda_criteria = []
+    for criterion in criteria:
+        adapted_criterion = criterion
+        adapted_criterion = re.sub("\\\'", "\"", adapted_criterion)
+        adapted_criterion = re.sub(" = ", " == ", adapted_criterion)
+        adapted_criterion = re.sub("AND", " and ", adapted_criterion)
+        adapted_criterion = re.sub("OR", " or ", adapted_criterion)
+        adapted_panda_criterion = adapted_criterion
+        adapted_nonpanda_criterion = adapted_criterion
+        for label in labels:
+            adapted_panda_criterion = re.sub("\"%s\"." % (label), "%s__" % (label), adapted_panda_criterion)
+            adapted_nonpanda_criterion = re.sub("\"%s\"." % (label), "%s." % (label), adapted_nonpanda_criterion)
+        adapted_panda_criteria += [adapted_panda_criterion]
+        adapted_nonpanda_criteria += [adapted_nonpanda_criterion]
+
+    # for criterion in criteria:
+    #     _joining_pairs = extract_joining_pairs(criterion)
+    #     _nonjoining_criterions = extract_nonjoining_criterions(criterion)
+    #
+    #     _nonjoining_criterions_str = criterion
+    #
+    #     if len(_joining_pairs) > 0:
+    #         _joining_pairs_str = str(sorted(_joining_pairs[0]))
+    #         if not _joining_pairs_str in _joining_pairs_str_index:
+    #             _joining_pairs_str_index[_joining_pairs_str] = 1
+    #             joining_pairs += _joining_pairs
+    #     if "CASE WHEN" in _nonjoining_criterions_str:
+    #         continue
+    #     if not _nonjoining_criterions_str in _nonjoining_criterions_str_index:
+    #         _nonjoining_criterions_str_index[_nonjoining_criterions_str] = 1
+    #         non_joining_criterions += _nonjoining_criterions
+
+    for criterion in joining_criteria:
+        _joining_pairs = extract_joining_pairs(criterion)
 
         if len(_joining_pairs) > 0:
             _joining_pairs_str = str(sorted(_joining_pairs[0]))
             if not _joining_pairs_str in _joining_pairs_str_index:
                 _joining_pairs_str_index[_joining_pairs_str] = 1
                 joining_pairs += _joining_pairs
-        if "CASE WHEN" in _nonjoining_criterions_str:
-            continue
-        if not _nonjoining_criterions_str in _nonjoining_criterions_str_index:
-            _nonjoining_criterions_str_index[_nonjoining_criterions_str] = 1
-            non_joining_criterions += _nonjoining_criterions
 
     """ Cloning lists_results. """
     for label in labels:
         needed_columns[label] = ["id"]
-    for criterion in non_joining_criterions:
+    for criterion in adapted_nonpanda_criteria:
         word_pattern = "[_a-z_A-Z][_a-z_A-Z0-9]*"
         property_pattern = "%s\.%s" % (word_pattern, word_pattern)
         for match in re.findall(property_pattern, str(criterion)):
@@ -271,7 +323,7 @@ def sql_panda_building_tuples(lists_results, labels, criterions, hints=[], metad
     attribute_clause = ",".join(map(lambda x: "%s.id" % (x), labels))
     from_clause = " join ".join(labels)
     where_join_clause = " and ".join(map(lambda x: "%s == %s" % (x[0], x[1]), joining_pairs))
-    where_criterions_clause = " and ".join(map(lambda x: str(x), non_joining_criterions))
+    where_criterions_clause = " and ".join(map(lambda x: str(x), adapted_panda_criteria))
 
     where_clause = "1==1 "
     if where_join_clause != "":
@@ -285,9 +337,9 @@ def sql_panda_building_tuples(lists_results, labels, criterions, hints=[], metad
     """ Preparing Dataframes. """
     env = {}
 
-    for (label, list_results) in zip(labels, lists_results):
+    for (label, k) in zip(labels, lists_results):
         # current_dataframe_all = dataframe_all
-        current_dataframe_all = pd.DataFrame(data=list_results)
+        current_dataframe_all = pd.DataFrame(data=lists_results[k])
         if order_by:
             # <v2>
             order_by_current_table = filter(lambda x: (label+".") in str(x), order_by_clauses)
@@ -296,7 +348,7 @@ def sql_panda_building_tuples(lists_results, labels, criterions, hints=[], metad
                 fields_columns = map(lambda x: x.split(".")[1], fields)
                 orders = map(lambda x: str(x).split(" ")[1], order_by_current_table)
                 orders_boolean = map(lambda x: x=="ASC", orders)
-                local_list_results = sorted(list_results, key=itemgetter(*fields_columns), reverse=orders_boolean[0])
+                local_list_results = sorted(lists_results[k], key=itemgetter(*fields_columns), reverse=orders_boolean[0])
                 current_dataframe_all = pd.DataFrame(data=local_list_results)
             # </v2>
         try:
@@ -395,10 +447,9 @@ def sql_panda_building_tuples(lists_results, labels, criterions, hints=[], metad
     rows = []
     for each in filtered_result.itertuples():
         try:
-            row = []
+            row = {}
             for (x, y) in zip(reversed(final_tables), reversed(each)):
-                    # row += [table_id_index[x][int(y)]]
-                    row += [table_id_index[x][y]]
+                    row[x] = table_id_index[x][y]
         except Exception as e:
             traceback.print_exc()
             pass

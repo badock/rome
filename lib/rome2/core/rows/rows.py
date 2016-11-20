@@ -8,9 +8,9 @@ import traceback
 from sqlalchemy.sql.expression import BinaryExpression
 from sqlalchemy.util._collections import KeyedTuple
 
-from lib.rome.core.dataformat import get_decoder
-from lib.rome.core.lazy import LazyValue
-from lib.rome.core.utils import get_objects, is_novabase
+from lib.rome2.core.dataformat import get_decoder
+from lib.rome2.core.lazy import LazyValue
+from lib.rome2.core.utils import get_objects, is_novabase
 
 # from tuples import default_panda_building_tuples as join_building_tuples
 from tuples import sql_panda_building_tuples as join_building_tuples
@@ -130,7 +130,7 @@ def extract_table_data(term):
 
 
 def extract_joining_criterion(exp):
-    from lib.rome.core.expression.expression import BooleanExpression
+    from lib.rome2.core.expression.expression import BooleanExpression
     if type(exp) is BooleanExpression:
         return map(lambda x:extract_joining_criterion(x), exp.exps)
     elif type(exp) is BinaryExpression:
@@ -157,11 +157,18 @@ def wrap_with_lazy_value(value, only_if_necessary=True, request_uuid=None):
         return LazyValue(value, request_uuid)
 
 
-def construct_rows(models, criterions, hints, session=None, request_uuid=None, order_by=None):
+def construct_rows(query_tree, entity_class_registry, request_uuid=None):
 
     """This function constructs the rows that corresponds to the current orm.
     :return: a list of row, according to sqlalchemy expectation
     """
+
+    # Find the SQLAlchemy model classes
+    models = map(lambda x: entity_class_registry[x], query_tree.models)
+    criteria = query_tree.where_clauses
+    joining_criteria = query_tree.joining_clauses
+    hints = []
+    order_by = None
 
     current_milli_time = lambda: int(round(time.time() * 1000))
 
@@ -177,45 +184,44 @@ def construct_rows(models, criterions, hints, session=None, request_uuid=None, o
     columns = set([])
     rows = []
 
-    model_set = extract_models(models)
+    # model_set = extract_models(models)
+    model_set = models
 
     """ Get the fields of the join result """
     for selectable in model_set:
-        labels += [find_table_name(selectable._model)]
-        if selectable._attributes == "*":
-            try:
-                selected_attributes = selectable._model._sa_class_manager
-            except:
-                traceback.print_exc()
-                selected_attributes = selectable._model.class_._sa_class_manager
-                pass
-        else:
-            selected_attributes = [selectable._attributes]
+        labels += [selectable.__table__.name]
+        selected_attributes = selectable._sa_class_manager
 
         for field in selected_attributes:
             attribute = None
-            if has_attribute(models, "class_"):
-                attribute = selectable._model.class_._sa_class_manager[field].__str__()
-            elif has_attribute(models, "_sa_class_manager"):
-                attribute = selectable._model._sa_class_manager[field].__str__()
+            if has_attribute(selectable, "class_"):
+                attribute = selectable.class_._sa_class_manager[field].__str__()
+            elif has_attribute(selectable, "_sa_class_manager"):
+                attribute = selectable._sa_class_manager[field].__str__()
             if attribute is not None:
                 columns.add(attribute)
     part2_starttime = current_milli_time()
 
     """ Loading objects (from database) """
-    list_results = []
+    list_results = {}
     for selectable in model_set:
-        tablename = find_table_name(selectable._model)
-        authorized_secondary_indexes = get_attribute(selectable._model, "_secondary_indexes", [])
+        tablename = selectable.__table__.name
+        # authorized_secondary_indexes = get_attribute(selectable._model, "_secondary_indexes", [])
+        authorized_secondary_indexes = []
         selected_hints = filter(lambda x: x.table_name == tablename and (x.attribute == "id" or x.attribute in authorized_secondary_indexes), hints)
         reduced_hints = map(lambda x:(x.attribute, x.value), selected_hints)
         objects = get_objects(tablename, request_uuid=request_uuid, skip_loading=False, hints=reduced_hints)
-        list_results += [objects]
+        list_results[tablename] = objects
     part3_starttime = current_milli_time()
+
+    # Handling aliases
+    for k in query_tree.aliases:
+        list_results[k] = list_results[query_tree.aliases[k]]
+
 
     """ Building tuples """
     building_tuples = join_building_tuples
-    tuples = building_tuples(list_results, labels, criterions, hints, metadata=metadata, order_by=order_by)
+    tuples = building_tuples(list_results, criteria, joining_criteria, hints, metadata=metadata, order_by=order_by)
     part4_starttime = current_milli_time()
 
     """ Filtering tuples (cartesian product) """
@@ -223,61 +229,20 @@ def construct_rows(models, criterions, hints, session=None, request_uuid=None, o
     for product in tuples:
         if len(product) > 0:
             if keytuple_labels is None:
-                keytuple_labels = map(lambda e: e["_nova_classname"], product)
-            row = product
-            rows += [extract_sub_row(row, model_set, labels, tablename)]
+                keytuple_labels = map(lambda k: product[k]["_nova_classname"], product)
+            rows += [product]
     part5_starttime = current_milli_time()
-    decoder = get_decoder(request_uuid=request_uuid)
 
     """ Reordering tuples (+ selecting attributes) """
-    showable_selection = [x for x in models if (not x.is_hidden) or x._is_function]
     part6_starttime = current_milli_time()
 
-    """ Selecting attributes """
-    if any_selectable_is_function(models):
-        final_row = []
-        for selection in showable_selection:
-            if selection._is_function:
-                value = selection._function._function(rows)
-                final_row += [value]
-            else:
-                final_row += [None]
-        final_row = map(lambda x: decoder.desimplify(x), final_row)
-        return [final_row]
-    else:
-        first_row = rows[0] if len(rows) > 0 else {}
-        first_row_is_novabase = is_novabase(first_row)
-        first_row_has_tablename_attribute = has_attribute(first_row, tablename)
-        columns_oriented_values = []
-        for selection in showable_selection:
-            def generate_row_operation(selection, tablename, request_uuid):
-                if selection._is_function:
-                    return selection._function._function
-                else:
-                    key = tablename
-                    if not first_row_is_novabase and first_row_has_tablename_attribute:
-                        return lambda r: wrap_with_lazy_value(get_attribute(r, key), request_uuid)
-                    else:
-                        if selection._attributes != "*":
-                            return lambda r: wrap_with_lazy_value(get_attribute(r, selection._attributes), request_uuid)
-                        else:
-                            return lambda r: wrap_with_lazy_value(r, request_uuid)
-            tablename = selection._model.__tablename__ if not selection._is_function else ""
-            row_operation = generate_row_operation(selection, tablename, request_uuid)
-            columns_oriented_values += [map(row_operation, rows)]
-    final_rows = list(map(list, zip(*columns_oriented_values)))
-    if len(showable_selection) == 1:
-        final_rows = map(lambda x: x[0], final_rows)
-    part7_starttime = current_milli_time()
-
-    query_information = """{"building_query": %s, "loading_objects": %s, "building_tuples": %s, "filtering_tuples": %s, "reordering_columns": %s, "selecting_attributes": %s, "description": "%s", "timestamp": %i}""" % (
+    query_information = """{"building_query": %s, "loading_objects": %s, "building_tuples": %s, "filtering_tuples": %s, "reordering_columns": %s, "description": "%s", "timestamp": %i}""" % (
         part2_starttime - part1_starttime,
         part3_starttime - part2_starttime,
         part4_starttime - part3_starttime,
         part5_starttime - part4_starttime,
         part6_starttime - part5_starttime,
-        part7_starttime - part6_starttime,
-        metadata["sql"] if "sql" in metadata else """{\\"models\\": \\"%s\\", \\"criterions\\": \\"%s\\"}""" % (models, criterions),
+        metadata["sql"] if "sql" in metadata else """{\\"models\\": \\"%s\\", \\"criteria\\": \\"%s\\", \\"joining_criteria\\": \\"%s\\"}""" % (models, criteria, joining_criteria),
         current_milli_time()
     )
 
@@ -285,4 +250,4 @@ def construct_rows(models, criterions, hints, session=None, request_uuid=None, o
     if file_logger_enabled:
         file_logger.info(query_information)
 
-    return final_rows
+    return rows
