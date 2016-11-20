@@ -5,6 +5,7 @@ import math
 import traceback
 import datetime
 from operator import itemgetter
+import re
 
 from lib.rome2.core.utils import DATE_FORMAT, datetime_to_int
 
@@ -218,7 +219,7 @@ def extract_nonjoining_criterions(criterion):
         return m
 
 
-def sql_panda_building_tuples(lists_results, criteria, joining_criteria, hints=[], metadata={}, order_by=None):
+def sql_panda_building_tuples(query_tree, lists_results, metadata={}, order_by=None):
 
     """ Build tuples (join operator in relational algebra). """
     labels = lists_results.keys()
@@ -249,7 +250,7 @@ def sql_panda_building_tuples(lists_results, criteria, joining_criteria, hints=[
 
     adapted_nonpanda_criteria = []
     adapted_panda_criteria = []
-    for criterion in criteria:
+    for criterion in query_tree.where_clauses:
         adapted_criterion = criterion
         adapted_criterion = re.sub("\\\'", "\"", adapted_criterion)
         adapted_criterion = re.sub(" = ", " == ", adapted_criterion)
@@ -263,24 +264,7 @@ def sql_panda_building_tuples(lists_results, criteria, joining_criteria, hints=[
         adapted_panda_criteria += [adapted_panda_criterion]
         adapted_nonpanda_criteria += [adapted_nonpanda_criterion]
 
-    # for criterion in criteria:
-    #     _joining_pairs = extract_joining_pairs(criterion)
-    #     _nonjoining_criterions = extract_nonjoining_criterions(criterion)
-    #
-    #     _nonjoining_criterions_str = criterion
-    #
-    #     if len(_joining_pairs) > 0:
-    #         _joining_pairs_str = str(sorted(_joining_pairs[0]))
-    #         if not _joining_pairs_str in _joining_pairs_str_index:
-    #             _joining_pairs_str_index[_joining_pairs_str] = 1
-    #             joining_pairs += _joining_pairs
-    #     if "CASE WHEN" in _nonjoining_criterions_str:
-    #         continue
-    #     if not _nonjoining_criterions_str in _nonjoining_criterions_str_index:
-    #         _nonjoining_criterions_str_index[_nonjoining_criterions_str] = 1
-    #         non_joining_criterions += _nonjoining_criterions
-
-    for criterion in joining_criteria:
+    for criterion in query_tree.joining_clauses:
         _joining_pairs = extract_joining_pairs(criterion)
 
         if len(_joining_pairs) > 0:
@@ -393,7 +377,6 @@ def sql_panda_building_tuples(lists_results, criteria, joining_criteria, hints=[
             processed_tables += [tablename_1, tablename_2]
             processed_tables = list(set(processed_tables))
 
-
     """ Fixing none result. """
     if result is None:
         if len(labels) == 0:
@@ -440,10 +423,16 @@ def sql_panda_building_tuples(lists_results, criteria, joining_criteria, hints=[
     result = result.fillna(value=0)
     filtered_result = result.query(new_where_clause) if new_where_clause != "1==1" else result
 
+    """ Filter duplicate tuples (ie "select A.x from A join B") """
+    table_in_selected_attributes = list(set(map(lambda x: x.split(".")[0].replace("\"", ""), query_tree.attributes)))
+    id_columns = map(lambda x: "%s__id" % (x), table_in_selected_attributes)
+
     """ Transform pandas data into dict. """
-    final_columns = list(set(map(lambda l: "%s__id" % (l), labels)).intersection(filtered_result))
+    possible_final_columns = list(set(map(lambda l: "%s__id" % (l), labels)).intersection(filtered_result))
+    final_columns = list(set(possible_final_columns).intersection(id_columns))
+
     final_tables = map(lambda x: x.split("__")[0], final_columns)
-    filtered_result = filtered_result[final_columns]
+    filtered_result = filtered_result[final_columns].drop_duplicates()
     rows = []
     for each in filtered_result.itertuples():
         try:
@@ -454,4 +443,6 @@ def sql_panda_building_tuples(lists_results, criteria, joining_criteria, hints=[
             traceback.print_exc()
             pass
         rows += [row]
+
+    # Reduce results
     return rows

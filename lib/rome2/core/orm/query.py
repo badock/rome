@@ -4,389 +4,106 @@ This module contains a definition of object queries.
 
 """
 
-import inspect
-import traceback
-
-from sqlalchemy.sql.elements import UnaryExpression
-from sqlalchemy.sql.expression import BinaryExpression, BooleanClauseList
-import itertools
-
-import exc
-from lib.rome.core.models import get_model_class_from_name, get_model_classname_from_tablename
-from lib.rome.core.rows.rows import construct_rows, find_table_name, all_selectables_are_functions
-from lib.rome.core.terms.terms import *
-
-try:
-    from lib.rome.core.dataformat import get_decoder
-    from lib.rome.core.dataformat.json import find_table_name
-except:
-    pass
+from sqlalchemy import Integer, String
+import logging
+from sqlalchemy.ext.declarative.api import DeclarativeMeta
+from lib.rome2.core.dataformat.json import Decoder
 
 
-class Query:
+class Query(object):
 
     def __init__(self, *args, **kwargs):
-        self._models = []
-        self._initial_models = []
-        self._criterions = []
-        self._funcs = []
-        self._hints = []
-        self._orders = []
-        self._session = None
-        base_model = None
 
-        # Process Query's arguments in a seperate function
-        self._extract_arguments(*args, **kwargs)
+        self.session = kwargs.pop("__session", None)
 
-    def _extract_arguments(self, *args, **kwargs):
-        if "base_model" in kwargs:
-            base_model = kwargs.get("base_model")
-        if "session" in kwargs:
-            self._session = kwargs.get("session")
-        for arg in args:
-            if type(arg) is tuple:
-                for arg2 in arg:
-                    self._extract_argument(arg2)
+        if "__query" in kwargs:
+            self.sqlalchemy_query = kwargs["__query"]
+        else:
+            if self.session:
+                from sqlalchemy.orm.session import Session
+                temporary_session = Session()
+                self.sqlalchemy_query = temporary_session.query(*args, **kwargs)
             else:
-                self._extract_argument(arg)
-        if all_selectables_are_functions(self._models):
-            if base_model:
-                self._models += [Selection(base_model, "*", is_hidden=True)]
+                from sqlalchemy.orm import Query as SqlAlchemyQuery
+                self.sqlalchemy_query = SqlAlchemyQuery(*args, **kwargs)
 
-    def _extract_argument(self, arg):
-        if ("count" in str(arg) or "sum" in str(arg)) and "DeclarativeMeta" not in str(type(arg)):
-            function_name = re.sub("\(.*\)", "", str(arg))
-            field_id = re.sub("\)", "", re.sub(".*\(", "", str(arg)))
-            self._models += [Selection(None, None, is_function=True, function=Function(function_name, field_id))]
-        elif find_table_name(arg) != "none":
-            arg_as_text = "%s" % (arg)
-            attribute_name = "*"
-            if not hasattr(arg, "_sa_class_manager"):
-                if (len(arg_as_text.split(".")) > 1):
-                    attribute_name = arg_as_text.split(".")[-1]
-                if hasattr(arg, "_sa_class_manager"):
-                    self._models += [Selection(arg, attribute_name)]
-                elif hasattr(arg, "class_"):
-                    self._models += [Selection(arg.class_, attribute_name)]
-            else:
-                self._models += [Selection(arg, "*")]
-                pass
-        elif isinstance(arg, UnaryExpression):
-            parts = str(arg).split(" ")
-            if len(parts) > 1:
-                fieldname = parts[0]
-                order = parts[1]
-                if order in ["ASC", "DESC"]:
-                    self._orders += [arg]
-        elif isinstance(arg, Selection):
-            self._models += [arg]
-        elif isinstance(arg, Hint):
-            self._hints += [arg]
-        elif isinstance(arg, Function):
-            self._models += [Selection(None, None, True, arg)]
-            self._funcs += [arg]
-        elif isinstance(arg, BooleanClauseList) or type(arg) == list:
-            for clause in arg:
-                if type(clause) == BinaryExpression:
-                    criterion = BooleanExpression("NORMAL", clause)
-                    self._criterions += [criterion]
-                    self._extract_hint(criterion)
-                    self._extract_models(criterion)
-        elif isinstance(arg, BinaryExpression):
-            criterion = BooleanExpression("NORMAL", arg)
-            self._criterions += [criterion]
-            self._extract_hint(criterion)
-            self._extract_models(criterion)
-        elif hasattr(arg, "is_boolean_expression"):
-            self._criterions += [arg]
-        else:
-            pass
+    def _set_query(self, query):
+        self.sqlalchemy_query = query
 
-    def all(self, request_uuid=None):
-        result_list = construct_rows(self._models, self._criterions, self._hints, session=self._session, request_uuid=request_uuid, order_by=self._orders)
-        result = []
-        for r in result_list:
-            ok = True
-            if ok:
-                result += [r]
-        return result
+    def __getattr__(self, item):
+        from sqlalchemy.orm import Query as SqlAlchemyQuery
+        import types
+        if hasattr(self.sqlalchemy_query, item):
+            result = getattr(self.sqlalchemy_query, item, None)
+            if isinstance(result, types.MethodType):
+                def anonymous_func(*args, **kwargs):
+                    call_result = result(*args, **kwargs)
+                    if isinstance(call_result, SqlAlchemyQuery):
+                        new_query = Query(*[], **{"__query": call_result})
+                        new_query._set_query(call_result)
+                        return new_query
+                    return call_result
+                return anonymous_func
+            return result
+        return super(object, self).__getattr__(item)
 
-    def first(self):
-        rows = self.all()
-        if len(rows) > 0:
-            return rows[0]
-        else:
-            None
+    def _extract_entity_class_registry(self):
+        from sqlalchemy.ext.declarative.api import DeclarativeMeta
+        for description in self.sqlalchemy_query.column_descriptions:
+            if "entity" in description:
+                declarative_meta = description["entity"]
+                entity_class_registry_instance_weak = getattr(declarative_meta, "_decl_class_registry", None)
+                if entity_class_registry_instance_weak is not None:
+                    entity_class_registry = {}
+                    for elmnt in entity_class_registry_instance_weak.values():
+                        if type(elmnt) is DeclarativeMeta:
+                            description = elmnt.__table__.description
+                            entity_class_registry[description] = elmnt
+                    return entity_class_registry
+        return None
 
-    def one_or_none(self):
-        ret = self.all()
+    def all(self):
+        from lib.rome2.core.orm.utils import get_literal_query
+        from lib.rome2.lang.sql_parser import QueryParser
+        from lib.rome2.core.rows.rows import construct_rows
 
-        l = len(ret)
-        if l == 1:
-            return ret[0]
-        elif l == 0:
-            return None
-        else:
-            raise exc.MultipleResultsFound("Multiple rows were found for one_or_none()")
+        sql_query = get_literal_query(self.sqlalchemy_query)
+        parser = QueryParser()
 
-    def one(self):
-        try:
-            ret = self.one_or_none()
-        except exc.MultipleResultsFound:
-            raise exc.MultipleResultsFound("Multiple results were found for one()")
-        else:
-            if ret is None:
-                raise exc.NoResultFound("No row was found for one()")
+        query_tree = parser.parse(sql_query)
+        entity_class_registry = self._extract_entity_class_registry()
 
-    def exists(self):
-        return self.first() is not None
+        rows = construct_rows(query_tree, entity_class_registry)
 
-    def count(self):
-        return len(self.all())
-
-    def soft_delete(self, synchronize_session=False):
-        count = 0
-        for e in self.all():
-            try:
-                e.soft_delete()
-                count += 1
-            except:
-                pass
-        return count
-
-    def delete(self, synchronize_session=False):
-        for e in self.all():
-            try:
-                e.delete()
-            except:
-                pass
-        return self
-
-    def update(self, values, synchronize_session='evaluate'):
-        result = self.all()
-        count = 0
-        for each in result:
-            try:
-                each.update(values)
-                if self._session is not None:
-                    self._session.update(each)
+        def row_function(row, column_descriptions, decoder):
+            final_row = []
+            for column_description in column_descriptions:
+                if type(column_description["type"]) in [Integer, String]:
+                    row_key = column_description["entity"].__table__.name.capitalize()
+                    property_name = column_description["name"]
+                    if row_key in row and property_name in row[row_key]:
+                        value = row[row_key].get(column_description["name"], None)
+                    if value is not None:
+                        final_row += [value]
+                    else:
+                        logging.error("Could not understand how to get the value of '%s' with this: '%s'" % (column_description.get("expr", "??"), row))
+                elif type(column_description["type"]) == DeclarativeMeta:
+                    row_key = column_description["entity"].__table__.name.capitalize()
+                    new_object = column_description["entity"]()
+                    attribute_names = map(lambda x: x.key, list(column_description["entity"].__table__.columns))
+                    for attribute_name in attribute_names:
+                        value = decoder.desimplify(row[row_key].get(attribute_name, None))
+                        setattr(new_object, attribute_name, value)
+                    final_row += [new_object]
                 else:
-                    each.save()
-                count = count + 1
-            except:
-                traceback.print_exc()
-                pass
-        return count
+                    logging.error("Unsupported type: '%s'" % (column_description["type"]))
+            return final_row
 
-    def distinct(self):
-        return list(set(self.all()))
+        decoder = Decoder()
+        final_rows = map(lambda r: row_function(r, self.sqlalchemy_query.column_descriptions, decoder), rows)
 
-    def limit(self, limit):
-        return self
+        if len(self.sqlalchemy_query.column_descriptions) == 1:
+            # Flatten the list
+            final_rows = [item for sublist in final_rows for item in sublist]
 
-    ####################################################################################################################
-    # Query construction
-    ####################################################################################################################
-
-    def _clone_query(self, additional_args=[]):
-        _func = self._funcs[:]
-        _models = self._models[:]
-        _orders = self._orders[:]
-        _criterions = self._criterions[:]
-        _initial_models = self._initial_models[:]
-        _hints = self._hints[:]
-        args = _models + _func + _criterions + _hints + list(additional_args) + _initial_models + _orders
-        kwargs = {}
-        if self._session is not None:
-            kwargs["session"] = self._session
-        return Query(*args, **kwargs)
-
-    def _extract_hint(self, criterion):
-        if hasattr(criterion, "extract_hint"):
-            self._hints += criterion.extract_hint()
-        elif type(criterion).__name__ == "BinaryExpression":
-            exp = BooleanExpression("or", *[criterion])
-            self._extract_hint(exp)
-
-    def _extract_models(self, criterion):
-        tables = []
-
-        """ This means that the current criterion is involving a constant value: there
-            is not information that could be collected about a join between tables. """
-        if ":" in str(criterion):
-            return
-        else:
-            """ Extract tables names from the criterion. """
-            expressions = [criterion.expression.left, criterion.expression.right] if hasattr(criterion, "expression") else []
-            for expression in expressions:
-                if str(expression) == "NULL":
-                    return
-                if hasattr(expression, "foreign_keys"):
-                    for foreign_key in getattr(expression, "foreign_keys"):
-                        if hasattr(foreign_key, "column"):
-                            tables += [foreign_key.column.table]
-        tables_objects = getattr(criterion, "_from_objects", [])
-        tables_names = map(lambda x: str(x), tables_objects)
-        tables += tables_names
-        tables = list(set(tables)) # remove duplicate names
-
-        """ Extract the missing entity models from tablenames. """
-        current_entities = map(lambda x: x._model, self._models)
-        current_entities = filter(lambda x: x is not None, current_entities)
-        current_entities_tablenames = map(lambda x: x.__tablename__, current_entities)
-        missing_tables = filter(lambda x: x not in current_entities_tablenames, tables)
-        missing_tables_names = map(lambda x: str(x), missing_tables)
-        missing_entities_names = map(lambda x: get_model_classname_from_tablename(x), missing_tables_names)
-        missing_entities_objects = map(lambda x: get_model_class_from_name(x), missing_entities_names)
-
-        """ Add the missing entity models to the models of the current query. """
-        missing_models_to_selections = map(lambda x: Selection(x, "id", is_hidden=True), missing_entities_objects)
-        self._models += missing_models_to_selections
-
-    def filter_by(self, **kwargs):
-        criterion = []
-        for a in kwargs:
-            for selectable in self._models:
-                try:
-                    column = getattr(selectable._model, a)
-                    criterion = column.__eq__(kwargs[a])
-                    self._extract_hint(criterion)
-                    criterion += [criterion]
-                    break
-                except Exception as e:
-                    # create a binary expression
-                    # traceback.print_exc()
-                    pass
-        return self.filter(*criterion)
-
-    def filter_dict(self, filters):
-        return self.filter_by(**filters)
-
-    # criterions can be a function
-    def filter(self, *criterions):
-        return self._clone_query(criterions)
-
-    def join(self, *args, **kwargs):
-        _func = self._funcs[:]
-        _models = self._models[:]
-        _orders = self._orders[:]
-        _criterions = self._criterions[:]
-        _hints = self._hints[:]
-        for arg in args:
-            if not isinstance(arg, list) and not isinstance(arg, tuple):
-                tuples = [arg]
-            else:
-                tuples = arg
-
-            for item in tuples:
-                is_class = inspect.isclass(item)
-                is_mapper = "orm.mapper.Mapper" in "%s" % (type(item))
-                is_expression = (
-                    "BinaryExpression" in "%s" % (item) or
-                    "BooleanExpression" in "%s" % (item) or
-                    "BinaryExpression" in "%s" % (type(item)) or
-                    "BooleanExpression" in "%s" % (type(item))
-                )
-                if is_class:
-                    _models = _models + [Selection(item, "*")]
-                    if len(tuples) == 1:
-                        # Must find an expression that would specify how to join the tables.
-                        from lib.rome.core.utils import get_relationships_from_class
-
-                        tablename = item.__tablename__
-                        non_function_models = filter(lambda x: x._model is not None,_models)
-                        current_tablenames = map(lambda x: x._model.__tablename__, non_function_models)
-                        models_classes = map(lambda x: x._model, non_function_models)
-                        relationships = map(lambda x: get_relationships_from_class(x), models_classes)
-                        # relationships = get_relationships_from_class(item)
-                        flatten_relationships = [item for sublist in relationships for item in sublist]
-                        for relationship in flatten_relationships:
-                            tablesnames = [relationship.local_tablename, relationship.remote_object_tablename]
-                            if tablename in tablesnames:
-                                other_tablename = filter(lambda x: x!= tablename, tablesnames)[0]
-                                if other_tablename in current_tablenames:
-                                    type_expression = type(relationship.initial_expression).__name__
-                                    new_criterions = []
-                                    if type_expression in ["BooleanClauseList", "list"]:
-                                        for exp in relationship.initial_expression:
-                                            new_criterions += [JoiningBooleanExpression("NORMAL", *[exp])]
-                                    elif type_expression == "BinaryExpression":
-                                        new_criterions = [JoiningBooleanExpression("NORMAL", *[relationship.initial_expression])]
-                                    _criterions += new_criterions
-                                    break
-                elif is_expression:
-                    _criterions += [item]
-                else:
-                    # We should have a string refering to an attribute of the Class
-                    if len(self._models) > 0:
-                        if arg is not None and hasattr(arg, "key"):
-                            arg = arg.key
-                        if is_mapper:
-                            pass
-                        else:
-                            relationship_field = getattr(self._models[0]._model, arg)
-
-                        joining_class = None
-                        if is_mapper:
-                            joining_class = item.entity
-                        elif hasattr(relationship_field, "property"):
-                            joining_class = relationship_field.property.argument
-                        # if hasattr(relationship_field, "expression"):
-                        #     expression = relationship_field.expression
-                        #     return self.join(joining_class, expression)
-                        return self.join(joining_class)
-        args = _models + _func + _criterions + _hints + self._initial_models + _orders
-        kwargs = {}
-        if self._session is not None:
-            kwargs["session"] = self._session
-        return Query(*args, **kwargs)
-
-    def outerjoin(self, *args, **kwargs):
-        return self.join(*args, **kwargs)
-
-    def options(self, *args):
-        return self._clone_query(args)
-
-    def order_by(self, *criterion):
-        return self._clone_query(criterion)
-
-    def with_lockmode(self, mode):
-        return self
-
-    def subquery(self):
-        return self._clone_query().all()
-
-    def union(self, *queries):
-        return QueryUnion(self, *queries)
-
-    def __iter__(self):
-        return iter(self.all())
-
-    def __repr__(self):
-        return """{\\"models\\": \\"%s\\", \\"criterions\\": \\"%s\\", \\"hints\\": \\"%s\\"}""" % (self._models, self._criterions, self._hints)
-
-
-class QueryUnion(Query):
-    def __init__(self, main_query, *queries):
-        self.main_query = main_query
-        self.queries = list(queries)
-        # Quick fix to enable compatibility with Glance
-        self._models = list(itertools.chain(map(lambda x: x._models, self.queries)))
-        self._initial_models = list(itertools.chain(map(lambda x: x._initial_models, self.queries)))
-        self._criterions = list(itertools.chain(map(lambda x: x._criterions, self.queries)))
-        self._funcs = list(itertools.chain(map(lambda x: x._funcs, self.queries)))
-        self._hints = list(itertools.chain(map(lambda x: x._hints, self.queries)))
-        self._session = None
-
-    def all(self, request_uuid=None):
-        result = self.main_query.all()
-        for query in self.queries:
-            result += query.all()
-        return result
-
-
-class QueryOption():
-
-    def __init__(self, key, value):
-        self.key = key
-        self.value = value
+        return final_rows

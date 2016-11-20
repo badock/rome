@@ -1,12 +1,8 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String
-from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy import orm
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, relationship
 
 eng = create_engine('sqlite:///:memory:')
 
@@ -23,10 +19,7 @@ class Author(Base):
 class Book(Base):
     __tablename__ = "Books"
 
-
     id = Column(Integer, primary_key=True)
-
-
 
     title = Column(String)
     price = Column(Integer)

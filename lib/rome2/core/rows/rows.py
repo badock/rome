@@ -221,7 +221,7 @@ def construct_rows(query_tree, entity_class_registry, request_uuid=None):
 
     """ Building tuples """
     building_tuples = join_building_tuples
-    tuples = building_tuples(list_results, criteria, joining_criteria, hints, metadata=metadata, order_by=order_by)
+    tuples = building_tuples(query_tree, list_results, metadata=metadata, order_by=order_by)
     part4_starttime = current_milli_time()
 
     """ Filtering tuples (cartesian product) """
