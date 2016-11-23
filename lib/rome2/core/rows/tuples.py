@@ -337,8 +337,8 @@ def sql_panda_building_tuples(query_tree, lists_results, metadata={}, order_by=N
             # </v2>
         try:
             dataframe = current_dataframe_all[needed_columns[label]]
-        except Exception as e:
-            traceback.print_exc(e)
+        except Exception as element:
+            traceback.print_exc(element)
             return []
         dataframe.columns = map(lambda c: "%s__%s" % (label, c), needed_columns[label])
         env[label] = dataframe
@@ -351,31 +351,52 @@ def sql_panda_building_tuples(query_tree, lists_results, metadata={}, order_by=N
 
     if len(lists_results) > 1:
         processed_tables = []
-        for joining_pair in joining_pairs:
-            """ Preparing the tables that will be joined. """
-            attribute_1 = joining_pair[0].strip()
-            attribute_2 = joining_pair[1].strip()
-            tablename_1 = attribute_1.split(".")[0]
-            tablename_2 = attribute_2.split(".")[0]
 
-            if tablename_1 not in env or tablename_2 not in env:
-                return []
-            dataframe_1 = env[tablename_1] if not tablename_1 in processed_tables else result
-            dataframe_2 = env[tablename_2] if not tablename_2 in processed_tables else result
+        if len(joining_pairs) > 0:
+            """Do a join between the tables"""
+            for joining_pair in joining_pairs:
+                """ Preparing the tables that will be joined. """
+                attribute_1 = joining_pair[0].strip()
+                attribute_2 = joining_pair[1].strip()
+                tablename_1 = attribute_1.split(".")[0]
+                tablename_2 = attribute_2.split(".")[0]
 
-            refactored_attribute_1 = attribute_1.split(".")[0]+"__"+attribute_1.split(".")[1]
-            refactored_attribute_2 = attribute_2.split(".")[0]+"__"+attribute_2.split(".")[1]
+                if tablename_1 not in env or tablename_2 not in env:
+                    return []
+                dataframe_1 = env[tablename_1] if not tablename_1 in processed_tables else result
+                dataframe_2 = env[tablename_2] if not tablename_2 in processed_tables else result
 
-            """ Join the tables. """
-            try:
-                result = pd.merge(dataframe_1, dataframe_2, left_on=refactored_attribute_1, right_on=refactored_attribute_2, how="outer")
-                drop_y(result)
-                rename_x(result)
-            except KeyError:
-                return []
-            """ Update the history of processed tables. """
-            processed_tables += [tablename_1, tablename_2]
-            processed_tables = list(set(processed_tables))
+                refactored_attribute_1 = attribute_1.split(".")[0]+"__"+attribute_1.split(".")[1]
+                refactored_attribute_2 = attribute_2.split(".")[0]+"__"+attribute_2.split(".")[1]
+
+                """ Join the tables. """
+                try:
+                    result = pd.merge(dataframe_1, dataframe_2, left_on=refactored_attribute_1, right_on=refactored_attribute_2, how="outer")
+                    drop_y(result)
+                    rename_x(result)
+                except KeyError:
+                    return []
+                """ Update the history of processed tables. """
+                processed_tables += [tablename_1, tablename_2]
+                processed_tables = list(set(processed_tables))
+        elif len(table_index.keys()) >= 2:
+            """Do a cartesian product manually"""
+            ids_array = []
+            for tablename in table_index.keys():
+                old_ids_array = ids_array
+                ids_array = []
+                if tablename not in env:
+                    continue
+                if len(old_ids_array) == 0:
+                    ids_array = map(lambda x: {"%s__id" % (tablename): x["id"]}, lists_results[tablename])
+                else:
+                    for element in lists_results[tablename]:
+                        for row in old_ids_array:
+                            row_copy = row.copy()
+                            row_copy["%s__id" % (tablename)] = element["id"]
+                            ids_array += [row_copy]
+                processed_tables += [tablename]
+            result = pd.DataFrame(ids_array)
 
     """ Fixing none result. """
     if result is None:
@@ -439,7 +460,7 @@ def sql_panda_building_tuples(query_tree, lists_results, metadata={}, order_by=N
             row = {}
             for (x, y) in zip(reversed(final_tables), reversed(each)):
                     row[x] = table_id_index[x][y]
-        except Exception as e:
+        except Exception as element:
             traceback.print_exc()
             pass
         rows += [row]

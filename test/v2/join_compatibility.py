@@ -19,7 +19,7 @@ def extract_column(x):
 
 def extract_row(x):
     if hasattr(x, "__iter__"):
-        return map(lambda y: extract_column(y), x)
+        return map(lambda y: extract_row(y), x)
     else:
         return extract_column(x)
 

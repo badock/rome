@@ -77,6 +77,7 @@ class Query(object):
 
         def row_function(row, column_descriptions, decoder):
             final_row = []
+            one_is_an_object = False
             for column_description in column_descriptions:
                 if type(column_description["type"]) in [Integer, String]:
                     row_key = column_description["entity"].__table__.name.capitalize()
@@ -88,6 +89,7 @@ class Query(object):
                     else:
                         logging.error("Could not understand how to get the value of '%s' with this: '%s'" % (column_description.get("expr", "??"), row))
                 elif type(column_description["type"]) == DeclarativeMeta:
+                    one_is_an_object = True
                     row_key = column_description["entity"].__table__.name.capitalize()
                     new_object = column_description["entity"]()
                     attribute_names = map(lambda x: x.key, list(column_description["entity"].__table__.columns))
@@ -97,7 +99,10 @@ class Query(object):
                     final_row += [new_object]
                 else:
                     logging.error("Unsupported type: '%s'" % (column_description["type"]))
-            return final_row
+            if not one_is_an_object:
+                return [final_row]
+            else:
+                return final_row
 
         decoder = Decoder()
         final_rows = map(lambda r: row_function(r, self.sqlalchemy_query.column_descriptions, decoder), rows)
