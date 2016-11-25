@@ -445,6 +445,7 @@ def sql_panda_building_tuples(query_tree, lists_results, metadata={}, order_by=N
     filtered_result = result.query(new_where_clause) if new_where_clause != "1==1" else result
 
     """ Filter duplicate tuples (ie "select A.x from A join B") """
+    selected_attributes_corrected = map(lambda a: a.replace("\"", "").replace(".", "__"), query_tree.attributes)
     table_in_selected_attributes = list(set(map(lambda x: x.split(".")[0].replace("\"", ""), query_tree.attributes)))
     id_columns = map(lambda x: "%s__id" % (x), table_in_selected_attributes)
 
@@ -460,10 +461,22 @@ def sql_panda_building_tuples(query_tree, lists_results, metadata={}, order_by=N
             row = {}
             for (x, y) in zip(reversed(final_tables), reversed(each)):
                     row[x] = table_id_index[x][y]
-        except Exception as element:
+        except Exception as e:
             traceback.print_exc()
             pass
         rows += [row]
+
+    """ Process function calls """
+    if len(query_tree.function_calls) > 0:
+        row = rows[0]
+        for attribute_index, function_name in query_tree.function_calls.iteritems():
+            attribute_name = selected_attributes_corrected[attribute_index]
+            original_attribute_name = query_tree.attributes[attribute_index]
+            f = getattr(filtered_result[attribute_name], function_name)
+            value = f()
+            row_key = "%s(%s)" % (function_name, original_attribute_name)
+            row[row_key] = value
+        return [row]
 
     # Reduce results
     return rows

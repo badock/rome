@@ -82,8 +82,15 @@ class Query(object):
                 if type(column_description["type"]) in [Integer, String]:
                     row_key = column_description["entity"].__table__.name.capitalize()
                     property_name = column_description["name"]
+                    value = None
                     if row_key in row and property_name in row[row_key]:
-                        value = row[row_key].get(column_description["name"], None)
+                        value = row[row_key].get(property_name, None)
+                    else:
+                        """ It seems that we are parsing the result of a function call """
+                        column_description_expr = column_description.get("expr", None)
+                        if column_description_expr is not None:
+                            property_name = str(column_description_expr)
+                            value = row.get(property_name, None)
                     if value is not None:
                         final_row += [value]
                     else:

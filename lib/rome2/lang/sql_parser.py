@@ -16,6 +16,7 @@ class QueryParserResult(object):
         self.joining_clauses = []
         self.variables = {}
         self.aliases = {}
+        self.function_calls = {}
 
 
 class QueryParser(object):
@@ -28,9 +29,23 @@ class QueryParser(object):
             self.parse_select_identifier(identifier_candidate, query)
         return query
 
+    def parse_select_function_identifier(self, function, query):
+        # Here we assume that each function call follows this pattern:
+        #   token[0] is the identifier of the function (count, avg, sum, ...)
+        #   token[1] is a parenthesis containing the identifier of the field to which the function is applied
+        function_name = function.tokens[0].value
+        attribute = function.tokens[1].tokens[1]
+        attribute_index = len(query.attributes)
+        self.parse_select_identifier(attribute, query)
+        query.function_calls[attribute_index] = function_name
+        return query
+
     def parse_select_identifier(self, identifier_candidate, query):
         if type(identifier_candidate) is sqlparse.sql.Identifier and identifier_candidate.value.strip() != "":
-            query.attributes += [identifier_candidate.value]
+            if len(identifier_candidate.tokens) > 0 and type(identifier_candidate.tokens[0]) is sqlparse.sql.Function:
+                self.parse_select_function_identifier(identifier_candidate.tokens[0], query)
+            else:
+                query.attributes += [identifier_candidate.value]
         return query
 
     def parse_from_identifier_list(self, identifier_candidates, query):

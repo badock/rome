@@ -81,6 +81,24 @@ def testing_attribute_selection_6(query_module):
     return str(sorted(result))
 
 
+def testing_attribute_selection_7(query_module):
+    models_module = sqlalchemy_models
+    query = query_module.get_query(models_module.Book, models_module.Book.author_id, models_module.Author, models_module.Author.name, models_module.Author.id)
+
+    rows = query.all()
+    result = map(extract_row, rows)
+    return str(sorted(result))
+
+
+def testing_attribute_selection_8(query_module):
+    models_module = sqlalchemy_models
+    query = query_module.get_query(models_module.Book.author_id)
+
+    rows = query.all()
+    result = map(extract_row, rows)
+    return str(sorted(result))
+
+
 def compare(function, model_a, model_b):
     result_a = function(model_a)
     result_b = function(model_b)
@@ -128,6 +146,13 @@ class TestAttributeSelection(unittest.TestCase):
         comparison_result = compare(testing_attribute_selection_6, sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
 
+    def test_attribute_selection_compatibility_7(self):
+        comparison_result = compare(testing_attribute_selection_7, sqlalchemy_models, rome_models)
+        self.assertEquals(comparison_result, True)
+
+    def test_attribute_selection_compatibility_8(self):
+        comparison_result = compare(testing_attribute_selection_8, sqlalchemy_models, rome_models)
+        self.assertEquals(comparison_result, True)
 
 # if __name__ == '__main__':
 #     # Init objects

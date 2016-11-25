@@ -225,11 +225,11 @@ def construct_rows(query_tree, entity_class_registry, request_uuid=None):
     part4_starttime = current_milli_time()
 
     """ Filtering tuples (cartesian product) """
-    keytuple_labels = None
+    # keytuple_labels = None
     for product in tuples:
         if len(product) > 0:
-            if keytuple_labels is None:
-                keytuple_labels = map(lambda k: product[k]["_nova_classname"], product)
+            # if keytuple_labels is None:
+            #     keytuple_labels = map(lambda k: product[k]["_nova_classname"], product)
             rows += [product]
     part5_starttime = current_milli_time()
 
