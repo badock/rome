@@ -9,7 +9,9 @@ from sqlalchemy.sql.sqltypes import *
 from lib.rome.core.models import Entity as NovaBase
 from lib.rome.core.models import global_scope
 from lib.rome.core.orm.query import Query
-from lib.rome.core.session.session import Session
+from lib.rome2.core.session.session import Session
+
+from sqlalchemy_models import Author, Book
 
 CONF = cfg.CONF
 BASE = declarative_base(constructor=NovaBase.__init__)
@@ -19,31 +21,33 @@ def MediumText():
     return Text().with_variant(MEDIUMTEXT(), 'mysql')
 
 
-@global_scope
-class AuthorRome(BASE, NovaBase):
-    __tablename__ = "Authors"
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-
-
-@global_scope
-class BookRome(BASE, NovaBase):
-    __tablename__ = "Books"
-
-    id = Column(Integer, primary_key=True)
-    title = Column(String)
-    price = Column(Integer)
-    author_id = Column(Integer, ForeignKey("Authors.id"))
-
-    Author = orm.relationship(AuthorRome, backref=orm.backref('books'), foreign_keys=author_id)
+# @global_scope
+# class AuthorRome(BASE, NovaBase):
+#     __tablename__ = "AuthorsRome"
+#
+#     id = Column(Integer, primary_key=True)
+#     name = Column(String)
+#
+#
+# @global_scope
+# class BookRome(BASE, NovaBase):
+#     __tablename__ = "Books"
+#
+#     id = Column(Integer, primary_key=True)
+#     title = Column(String)
+#     price = Column(Integer)
+#     author_id = Column(Integer, ForeignKey("AuthorsRome.id"))
+#
+#     Author = orm.relationship(AuthorRome, backref=orm.backref('books'), foreign_keys=author_id)
 
 
 def drop_tables():
-    for obj in Query(BookRome).all():
-        obj.delete()
-    for obj in Query(AuthorRome).all():
-        obj.delete()
+    drop_table_session = Session()
+    for obj in get_query(Book).all():
+        drop_table_session.delete(obj)
+    for obj in get_query(Author).all():
+        drop_table_session.delete(obj)
+    drop_table_session.commit()
 
 
 def create_tables():
@@ -60,7 +64,7 @@ def init_objects():
     next_book_id = 1
     for i in range(1, 4):
         author_id = next_author_id
-        author = AuthorRome()
+        author = Author()
         author.id = author_id
         author.name = 'Author%s' % (author_id)
         ses.add_all(
@@ -68,7 +72,7 @@ def init_objects():
         if i != 1:
             for j in range(1, 5):
                 book_id = next_book_id
-                book = BookRome()
+                book = Book()
                 book.id = book_id
                 book.title = 'Book%s_%s' % (i, book_id)
                 book.price = 200
@@ -77,29 +81,7 @@ def init_objects():
                    [book])
                 next_book_id += 1
         next_author_id += 1
-
     ses.commit()
-
-# def init_objects():
-#     next_author_id = 1
-#     next_book_id = 1
-#     for i in range(1, 4):
-#         author_id = next_author_id
-#         author = Author()
-#         author.id = author_id
-#         author.name = 'Author%s' % (author_id)
-#         author.save()
-#         if i != 1:
-#             for j in range(1, 5):
-#                 book_id = next_book_id
-#                 book = Book()
-#                 book.id = book_id
-#                 book.title = 'Book%s_%s' % (i, book_id)
-#                 book.price = 200
-#                 book.author_id = author_id
-#                 book.save()
-#                 next_book_id += 1
-#         next_author_id += 1
 
 
 def get_query(*args, **kwargs):

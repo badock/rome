@@ -48,50 +48,10 @@ def create_tables():
     Base.metadata.create_all()
 
 
-# def init_objects():
-#     next_author_id = 1
-#     next_book_id = 1
-#     for i in range(1, 4):
-#         author_id = next_author_id
-#         author = Author()
-#         author.id = author_id
-#         author.name = 'Author%s' % (author_id)
-#         author.save()
-#         if i != 1:
-#             for j in range(1, 5):
-#                 book_id = next_book_id
-#                 book = Book()
-#                 book.id = book_id
-#                 book.title = 'Book%s_%s' % (i, book_id)
-#                 book.price = 200
-#                 book.author_id = author_id
-#                 book.save()
-#                 next_book_id += 1
-#         next_author_id += 1
-
 Base.metadata.create_all()
 
 Session = sessionmaker(bind=eng)
 ses = Session()
-
-
-# def init_objects():
-#
-#     next_author_id = 1
-#     next_book_id = 1
-#     for i in range(1, 4):
-#         author_id = next_author_id
-#         ses.add_all(
-#            [Author(id=author_id, name='Author%s' % (author_id))])
-#         if i != 1:
-#             for j in range(1, 5):
-#                 book_id = next_book_id
-#                 ses.add_all(
-#                    [Book(id=book_id, title='Book%s_%s' % (i, book_id), price=200, author_id=author_id)])
-#                 next_book_id += 1
-#         next_author_id += 1
-#
-#     ses.commit()
 
 
 def init_objects():
@@ -117,7 +77,6 @@ def init_objects():
                    [book])
                 next_book_id += 1
         next_author_id += 1
-
     ses.commit()
 
 

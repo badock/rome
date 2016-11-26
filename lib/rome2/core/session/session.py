@@ -3,12 +3,10 @@ __author__ = 'jonathan'
 import logging
 import uuid
 
-from lib.rome.core.utils import merge_dicts
 from lib.rome.core.utils import current_milli_time
 from lib.rome.driver.redis.lock import ClusterLock
 from lib.rome.core.utils import DBDeadlock
-from lib.rome.core.lazy import LazyReference
-
+from utils import ObjectSaver
 
 class SessionDeadlock(Exception):
     pass
@@ -60,6 +58,10 @@ class Session(object):
                     continue
             if not self.already_in(obj, self.session_objects_add):
                 self.session_objects_add += [obj]
+
+    def add_all(self, objs):
+        for obj in objs:
+            self.add(obj)
 
     def update(self, obj):
         if self.already_in(obj, self.session_objects_add):
@@ -127,10 +129,11 @@ class Session(object):
 
     def commit(self):
         logging.info("session %s will start commit" % (self.session_id))
+        object_saver = ObjectSaver(self)
         for obj in self.session_objects_add:
-            obj.save(force=True, session_saving=self)
+            object_saver.save(obj)
         for obj in self.session_objects_delete:
-            obj.soft_delete()
+            object_saver.delete(obj)
         logging.info("session %s committed" % (self.session_id))
         for lock in self.acquired_locks:
             self.dlm.unlock(lock)

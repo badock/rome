@@ -457,49 +457,28 @@ def get_relationships(obj, foreignkey_mode=False):
     return result
 
 
-class LazyRelationship():
-    def __init__(self, rel, request_uuid=None):
-        from lib.rome.core.orm.query import Query
+class LazyRelationship(object):
+    def __init__(self, query, _class, many=True, request_uuid=None):
+        self.query = query
+        self.many = many
         self.data = None
-        self.rel = rel
-        self.request_uuid = request_uuid
         self.is_loaded = False
-        self.is_relationship_list = self.rel.to_many
-        # print(self.request_uuid)
-        # self.query = Query(rel.remote_class)
-        # self.query = self.query.filter(getattr(rel.remote_class, rel.remote_object_field)==rel.local_fk_value)
+        self._class = _class
+        if self.many:
+            self.data = []
+        else:
+            self.data = self._class()
 
     def reload(self):
-        def match(x, rel):
-            field_name = rel.remote_object_field
-            x_value = getattr(x, field_name, "None")
-            return x_value == rel.local_fk_value
-        if self.data is not None:
-            return
-        data = database_driver.get_driver().getall(self.rel.remote_object_tablename, [[self.rel.remote_object_field, self.rel.local_fk_value]])
-
-        if len(data) == 0:
-            from lib.rome.core.orm.query import Query
-            self.query = Query(self.rel.remote_class)
-            self.query = self.query.filter(getattr(self.rel.remote_class, self.rel.remote_object_field)==self.rel.local_fk_value)
-            if self.request_uuid:
-                data = self.query.all(request_uuid=self.request_uuid) #if self.rel.to_many else self.query.first()data
+        if self.data is None:
+            if self.many:
+                self.data = self.query.all()
             else:
-                data = self.query.all() #if self.rel.to_many else self.query.first()data
-        else:
-            from lib.rome.core.lazy import LazyValue
-            data = map(lambda x: LazyValue(x, self.request_uuid), data)
-        self.__dict__["data"] = data
-        self.data = filter(lambda x: match(x, self.rel), self.data)
-        if not self.rel.to_many:
-            if len(self.data) > 0:
-                self.data = self.data[0]
-            else:
-                self.data = None
-        self.is_loaded = True
+                for (k, v) in self.query.first():
+                    setattr(self.data, k, v)
 
     def __getattr__(self, item):
-        if item not in ["data", "rel", "query", "is_relationship_list", "is_loaded", "request_uuid"]:
+        if item not in ["data", "many", "query", "_class", "is_loaded"]:
             self.reload()
         if item == "iteritems":
             if self.is_relationship_list:
@@ -511,7 +490,7 @@ class LazyRelationship():
         return getattr(self.data, item, None)
 
     def __setattr__(self, name, value):
-        if name in ["data", "rel", "query", "is_relationship_list", "is_loaded", "request_uuid"]:
+        if name in ["data", "many", "query", "_class", "is_loaded"]:
             self.__dict__[name] = value
         else:
             self.reload()

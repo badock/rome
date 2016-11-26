@@ -212,7 +212,7 @@ class LazyValue:
 
 
 class LazyReference:
-    """Class that references a remote object stored in database. This aims
+    """Class that references a remote object stored in database. This aims at
     easing the development of algorithm on relational objects: instead of
     populating relationships even when not required, we load them "only" when
     it is used!"""

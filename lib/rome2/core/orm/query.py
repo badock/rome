@@ -119,3 +119,10 @@ class Query(object):
             final_rows = [item for sublist in final_rows for item in sublist]
 
         return final_rows
+
+    def first(self):
+        objects = self.all()
+        if len(objects) > 0:
+            return objects[0]
+        else:
+            return None

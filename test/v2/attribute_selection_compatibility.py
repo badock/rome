@@ -153,17 +153,3 @@ class TestAttributeSelection(unittest.TestCase):
     def test_attribute_selection_compatibility_8(self):
         comparison_result = compare(testing_attribute_selection_8, sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
-
-# if __name__ == '__main__':
-#     # Init objects
-#     init_mock_objects(rome_models)
-#     init_mock_objects(sqlalchemy_models)
-#
-#     # Basic join
-#     compare(testing_attribute_selection_1, sqlalchemy_models, rome_models)
-#     compare(testing_attribute_selection_2, sqlalchemy_models, rome_models)
-#     compare(testing_attribute_selection_3, sqlalchemy_models, rome_models)
-#     compare(testing_attribute_selection_4, sqlalchemy_models, rome_models)
-#     compare(testing_attribute_selection_5, sqlalchemy_models, rome_models)
-#     compare(testing_attribute_selection_6, sqlalchemy_models, rome_models)
-

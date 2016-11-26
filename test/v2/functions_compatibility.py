@@ -28,7 +28,7 @@ def extract_row(x):
 http://docs.sqlalchemy.org/en/latest/orm/loading_relationships.html """
 
 
-def testing_sub_selection_1(query_module):
+def testing_function_1(query_module):
     models_module = sqlalchemy_models
     query = query_module.get_query(count(models_module.Author.id))
 
@@ -37,7 +37,7 @@ def testing_sub_selection_1(query_module):
     return str(result)
 
 
-def testing_sub_selection_2(query_module):
+def testing_function_2(query_module):
     models_module = sqlalchemy_models
     query = query_module.get_query(sum(models_module.Author.id))
 
@@ -46,7 +46,7 @@ def testing_sub_selection_2(query_module):
     return str(result)
 
 
-def testing_sub_selection_3(query_module):
+def testing_function_3(query_module):
     models_module = sqlalchemy_models
     query = query_module.get_query(min(models_module.Author.id))
 
@@ -55,7 +55,7 @@ def testing_sub_selection_3(query_module):
     return str(result)
 
 
-def testing_sub_selection_4(query_module):
+def testing_function_4(query_module):
     models_module = sqlalchemy_models
     query = query_module.get_query(max(models_module.Author.id))
 
@@ -77,7 +77,7 @@ def compare(function, model_a, model_b):
 DATA_INITIALIZED = False
 
 
-class TestSubSelection(unittest.TestCase):
+class TestFunctions(unittest.TestCase):
 
     def setUp(self):
         global DATA_INITIALIZED
@@ -87,32 +87,18 @@ class TestSubSelection(unittest.TestCase):
             init_mock_objects(sqlalchemy_models)
             init_mock_objects(rome_models)
 
-    def test_sub_selection_compatibility_1(self):
-        comparison_result = compare(testing_sub_selection_1, sqlalchemy_models, rome_models)
+    def test_function_compatibility_1(self):
+        comparison_result = compare(testing_function_1, sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
 
-    def test_sub_selection_compatibility_2(self):
-        comparison_result = compare(testing_sub_selection_2, sqlalchemy_models, rome_models)
+    def test_function_compatibility_2(self):
+        comparison_result = compare(testing_function_2, sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
 
-    def test_sub_selection_compatibility_3(self):
-        comparison_result = compare(testing_sub_selection_3, sqlalchemy_models, rome_models)
+    def test_function_compatibility_3(self):
+        comparison_result = compare(testing_function_3, sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
 
-    def test_sub_selection_compatibility_4(self):
-        comparison_result = compare(testing_sub_selection_4, sqlalchemy_models, rome_models)
+    def test_function_compatibility_4(self):
+        comparison_result = compare(testing_function_4, sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
-
-# if __name__ == '__main__':
-#     # Init objects
-#     init_mock_objects(rome_models)
-#     init_mock_objects(sqlalchemy_models)
-#
-#     # Basic join
-#     compare(testing_sub_selection_1, sqlalchemy_models, rome_models)
-#     compare(testing_sub_selection_2, sqlalchemy_models, rome_models)
-#     compare(testing_sub_selection_3, sqlalchemy_models, rome_models)
-#     compare(testing_sub_selection_4, sqlalchemy_models, rome_models)
-#     compare(testing_sub_selection_5, sqlalchemy_models, rome_models)
-#     compare(testing_sub_selection_6, sqlalchemy_models, rome_models)
-

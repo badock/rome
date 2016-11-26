@@ -21,6 +21,7 @@ import utils
 from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
+
 def starts_with_uppercase(name):
     if name is None or len(name) == 0:
         return False
@@ -84,11 +85,13 @@ def merge_dict(a, b):
             result[key] = value
     return result
 
+
 def global_scope(cls):
     if not hasattr(sys, "rome_global_scope"):
         setattr(sys, "rome_global_scope", [])
     sys.rome_global_scope += [cls]
     return cls
+
 
 class IterableModel(object):
     def __setitem__(self, key, value):
@@ -108,6 +111,7 @@ class IterableModel(object):
             yield field
 
 entity_relationship_field = {}
+
 
 class Entity(ModelBase, IterableModel, utils.ReloadableRelationMixin):
 

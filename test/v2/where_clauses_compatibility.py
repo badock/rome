@@ -127,18 +127,3 @@ class TestWhereClauses(unittest.TestCase):
     def test_where_clauses_compatibility_6(self):
         comparison_result = compare(testing_where_clauses_5, sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
-
-
-# if __name__ == '__main__':
-#     # Init objects
-#     init_mock_objects(rome_models)
-#     init_mock_objects(sqlalchemy_models)
-#
-#     # Basic join
-#     compare(testing_where_clauses_1, sqlalchemy_models, rome_models)
-#     compare(testing_where_clauses_2, sqlalchemy_models, rome_models)
-#     compare(testing_where_clauses_3, sqlalchemy_models, rome_models)
-#     compare(testing_where_clauses_4, sqlalchemy_models, rome_models)
-#     compare(testing_where_clauses_5, sqlalchemy_models, rome_models)
-#     compare(testing_where_clauses_6, sqlalchemy_models, rome_models)
-
