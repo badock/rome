@@ -4,7 +4,7 @@ import etcd
 from rome.driver.database_driver import DatabaseDriverInterface
 from redlock import Redlock as Redlock
 
-from rome.conf.Configuration import get_config
+from rome.conf.configuration import get_config
 
 PARALLEL_STRUCTURES = {}
 

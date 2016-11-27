@@ -329,7 +329,6 @@ def sql_panda_building_tuples(query_tree, lists_results, metadata={}, order_by=N
     env = {}
 
     for (label, k) in zip(labels, lists_results):
-        # current_dataframe_all = dataframe_all
         current_dataframe_all = pd.DataFrame(data=lists_results[k])
         if order_by:
             # <v2>
@@ -342,10 +341,9 @@ def sql_panda_building_tuples(query_tree, lists_results, metadata={}, order_by=N
                 local_list_results = sorted(lists_results[k], key=itemgetter(*fields_columns), reverse=orders_boolean[0])
                 current_dataframe_all = pd.DataFrame(data=local_list_results)
             # </v2>
-        try:
+        if len(current_dataframe_all.columns) > 0:
             dataframe = current_dataframe_all[needed_columns[label]]
-        except Exception as element:
-            traceback.print_exc(element)
+        else:
             return []
         dataframe.columns = map(lambda c: "%s__%s" % (label, c), needed_columns[label])
         env[label] = dataframe

@@ -13,7 +13,7 @@ import uuid
 
 import redis
 import rediscluster
-from rome.conf.Configuration import get_config
+from rome.conf.configuration import get_config
 
 # Python 3 compatibility
 string_type = getattr(__builtins__, 'basestring', str)
