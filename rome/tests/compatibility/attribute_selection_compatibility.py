@@ -151,3 +151,6 @@ class TestAttributeSelection(unittest.TestCase):
     def test_attribute_selection_compatibility_8(self):
         comparison_result = compare(testing_attribute_selection_8, sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
+
+if __name__ == '__main__':
+    unittest.main()

@@ -125,3 +125,6 @@ class TestWhereClauses(unittest.TestCase):
     def test_where_clauses_compatibility_6(self):
         comparison_result = compare(testing_where_clauses_5, sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
+
+if __name__ == '__main__':
+    unittest.main()

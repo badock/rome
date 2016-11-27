@@ -132,3 +132,6 @@ class TestJoinOperation(unittest.TestCase):
     def test_joining_compatibility_6(self):
         comparison_result = compare(testing_join_6, sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
+
+if __name__ == '__main__':
+    unittest.main()

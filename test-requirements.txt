@@ -10,4 +10,3 @@ redis-py-cluster>=0.2.0,<1.0
 numexpr
 gevent
 ujson
-pytest
