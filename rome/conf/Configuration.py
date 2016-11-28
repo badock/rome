@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import ConfigParser
 
@@ -5,62 +6,63 @@ import ConfigParser
 class Configuration(object):
 
     def __init__(self, config_path="/etc/rome/rome.conf"):
-        self.config_path = config_path
-        self.config = None
+        self.configuration_path = config_path
+        self.configuration = None
         self.load()
 
     def load(self):
-        self.config = ConfigParser.ConfigParser()
-        self.config.read(self.config_path)
+        self.configuration = ConfigParser.ConfigParser()
+        self.configuration.read(self.configuration_path)
 
     def host(self):
-        return self.config.get('Rome', 'host')
+        return self.configuration.get('Rome', 'host')
 
     def database_caching(self):
         try:
-            return self.config.getboolean('Rome', 'database_caching')
+            return self.configuration.getboolean('Rome', 'database_caching')
         except ConfigParser.NoOptionError:
             return False
 
     def port(self):
-        return self.config.getint('Rome', 'port')
+        return self.configuration.getint('Rome', 'port')
 
     def backend(self):
-        return self.config.get('Rome', 'backend')
+        return self.configuration.get('Rome', 'backend')
 
     def redis_cluster_enabled(self):
-        return self.config.getboolean('Cluster', 'redis_cluster_enabled')
+        return self.configuration.getboolean('Cluster', 'redis_cluster_enabled')
 
     def cluster_nodes(self):
-        return self.config.get('Cluster', 'nodes').split(",")
+        return self.configuration.get('Cluster', 'nodes').split(",")
 
-config = None
+
+CONFIGURATION = None
 
 
 def build_config():
-    search_path = [
-        os.path.join(os.getcwd(), 'rome.conf'),
-        os.path.join(os.path.expanduser('~'), '.rome.conf'),
-        '/etc/rome/rome.conf'
-    ]
+    search_path = [os.path.join(os.getcwd(), 'rome.conf'),
+                   os.path.join(os.path.expanduser('~'), '.rome.conf'),
+                   '/etc/rome/rome.conf']
     config_path = None
-    for p in search_path:
-        if os.path.exists(p):
-            config_path = p
+    for path in search_path:
+        if os.path.exists(path):
+            config_path = path
             break
 
     return Configuration(config_path)
 
+
 def get_config():
-    global config
-    if config is None:
-        config = build_config()
-    return config
+    global CONFIGURATION
+    if CONFIGURATION is None:
+        CONFIGURATION = build_config()
+    return CONFIGURATION
+
 
 if __name__ == '__main__':
-    conf = Configuration()
-    print(conf.host())
-    print(conf.port())
-    print(conf.backend())
-    print(conf.redis_cluster_enabled())
-    print(conf.cluster_nodes())
+    CONFIGURATION = Configuration()
+    print(CONFIGURATION.host())
+    print(CONFIGURATION.port())
+    print(CONFIGURATION.backend())
+    print(CONFIGURATION.redis_cluster_enabled())
+    print(CONFIGURATION.cluster_nodes())

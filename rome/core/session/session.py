@@ -1,11 +1,11 @@
 import logging
 import uuid
 
-from rome.core.utils import DBDeadlock
 from rome.core.utils import current_milli_time
 from rome.driver.redis.lock import ClusterLock
 
 from utils import ObjectSaver
+from oslo_db.exception import DBDeadlock
 
 
 class SessionDeadlock(Exception):
@@ -24,7 +24,7 @@ class SessionControlledExecution():
 
     def __exit__(self, type, value, traceback):
         if traceback:
-            print(traceback)
+            logging.info(traceback)
         else:
             self.session.flush()
 
@@ -65,7 +65,8 @@ class Session(object):
 
     def update(self, obj):
         if self.already_in(obj, self.session_objects_add):
-            filtered = filter(lambda x: ("%s" % (x)) != "%s" % (obj), self.session_objects_add)
+            filtered = filter(lambda x: ("%s" % (x)) != "%s" % (obj),
+                              self.session_objects_add)
             self.session_objects_add = filtered
         if not self.already_in(obj, self.session_objects_add):
             self.session_objects_add += [obj]
@@ -103,7 +104,8 @@ class Session(object):
                 return True
             if current_milli_time >= obj.session["session_timeout"]:
                 return True
-        logging.error("session %s cannot use object %s" % (self.session_id, obj))
+        logging.error("session %s cannot use object %s" %
+                      (self.session_id, obj))
         return False
 
     def can_commit_request(self):
@@ -118,7 +120,8 @@ class Session(object):
                     success = False
                     break
         if not success:
-            logging.error("session %s encountered a conflict, aborting commit" % (self.session_id))
+            logging.error("session %s encountered a conflict, aborting commit" %
+                          (self.session_id))
             for lock in locks:
                 self.dlm.unlock(lock)
             raise DBDeadlock()

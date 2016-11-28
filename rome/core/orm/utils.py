@@ -12,6 +12,7 @@ str_type = str if PY3 else (str, unicode)
 
 class StringLiteral(String):
     """Teach SA how to literalize various things."""
+
     def literal_processor(self, dialect):
         super_processor = super(StringLiteral, self).literal_processor(dialect)
 
@@ -24,6 +25,7 @@ class StringLiteral(String):
             if isinstance(result, bytes):
                 result = result.decode(dialect.encoding)
             return result
+
         return process
 
 
@@ -43,7 +45,5 @@ def get_literal_query(statement):
     import sqlalchemy.orm
     if isinstance(statement, sqlalchemy.orm.Query):
         statement = statement.selectable
-    return statement.compile(
-        dialect=LiteralDialect(),
-        compile_kwargs={'literal_binds': True},
-    ).string
+    return statement.compile(dialect=LiteralDialect(),
+                             compile_kwargs={'literal_binds': True},).string

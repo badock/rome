@@ -13,13 +13,13 @@ import uuid
 
 import redis
 import rediscluster
-from rome.conf.Configuration import get_config
+from rome.conf.configuration import get_config
 
 # Python 3 compatibility
 string_type = getattr(__builtins__, 'basestring', str)
 
-
 from rome.core.utils import merge_dicts as merge_dicts
+
 
 class ClusterLock(object):
 
@@ -29,10 +29,17 @@ class ClusterLock(object):
         self.uuid = str(uuid.uuid1())
         config = get_config()
         if config.redis_cluster_enabled():
-            startup_nodes = map(lambda x: {"host": x, "port": "%s" % (config.port())}, config.cluster_nodes())
-            self.redis_client = rediscluster.StrictRedisCluster(startup_nodes=startup_nodes, decode_responses=True)
+            startup_nodes = map(
+                lambda x: {"host": x,
+                           "port": "%s" % (config.port())},
+                config.cluster_nodes())
+            self.redis_client = rediscluster.StrictRedisCluster(
+                startup_nodes=startup_nodes,
+                decode_responses=True)
         else:
-            self.redis_client = redis.StrictRedis(host=config.host(), port=config.port(), db=0)
+            self.redis_client = redis.StrictRedis(host=config.host(),
+                                                  port=config.port(),
+                                                  db=0)
 
     def lock(self, name, ttl):
         self.unlock(name, only_expired=True)
@@ -42,11 +49,17 @@ class ClusterLock(object):
             now = time.time()
             failed = False
             keys = map(lambda x: "%s_%s" % (x, name), self.lock_labels)
-            lock_value = {"host": self.uuid, "start_date": now, "ttl": ttl, "request_uuid": request_uuid}
+            lock_value = {
+                "host": self.uuid,
+                "start_date": now,
+                "ttl": ttl,
+                "request_uuid": request_uuid
+            }
             processed_keys = []
             for key in keys:
                 lock_value_with_key = merge_dicts(lock_value, {"key": key})
-                result = self.redis_client.hsetnx("lock", key, json.dumps(lock_value_with_key))
+                result = self.redis_client.hsetnx(
+                    "lock", key, json.dumps(lock_value_with_key))
                 if result == 0:
                     failed = True
                     break
@@ -69,14 +82,16 @@ class ClusterLock(object):
         for each in data:
             if each:
                 json_object = json.loads(each)
-                expiration_date = json_object["start_date"] + (json_object["ttl"] / 1000.0)
+                expiration_date = json_object["start_date"] + (
+                    json_object["ttl"] / 1000.0)
                 if not only_expired:
                     if json_object["request_uuid"] == request_uuid:
                         keys_to_delete += [json_object["key"]]
                 if expiration_date < now:
                     keys_to_delete += [json_object["key"]]
                 else:
-                    logging.debug("still %s ms to wait" % (expiration_date - now))
+                    logging.debug("still %s ms to wait" %
+                                  (expiration_date - now))
         for key in keys_to_delete:
             self.redis_client.hdel("lock", key)
         # self.redis_client.delete("lock", keys_to_delete)

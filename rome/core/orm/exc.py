@@ -17,7 +17,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 """Rome ORM exceptions."""
 
 
@@ -31,5 +30,3 @@ class NoResultFound(InvalidRequestError):
 
 class MultipleResultsFound(InvalidRequestError):
     """A single database result was required but more than one were found."""
-
-

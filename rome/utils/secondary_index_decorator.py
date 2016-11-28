@@ -10,8 +10,10 @@ class SecondaryIndexDecorator(object):
 
     def __call__(self, model_class):
         # <old implementation>
-        current_secondary_indexes = getattr(model_class, "_secondary_indexes", [])
-        setattr(model_class, "_secondary_indexes", current_secondary_indexes + [self.attribute])
+        current_secondary_indexes = getattr(model_class,
+                                            "_secondary_indexes", [])
+        setattr(model_class, "_secondary_indexes",
+                current_secondary_indexes + [self.attribute])
         # </old implementation>
 
         # <new implementation>
@@ -27,6 +29,7 @@ class SecondaryIndexDecorator(object):
 
 def secondary_index_decorator(attribute):
     return SecondaryIndexDecorator(attribute)
+
 
 if __name__ == '__main__':
     pass

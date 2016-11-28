@@ -21,13 +21,15 @@ def extract_row(x):
     else:
         return extract_column(x)
 
+
 """ It should implement the behaviour depicted in
 http://docs.sqlalchemy.org/en/latest/orm/loading_relationships.html """
 
 
 def testing_where_clauses_1(query_module):
     models_module = sqlalchemy_models
-    query = query_module.get_query(models_module.Author).filter(models_module.Author.id == 1)
+    query = query_module.get_query(models_module.Author).filter(
+        models_module.Author.id == 1)
 
     rows = query.all()
     result = map(extract_row, rows)
@@ -36,7 +38,8 @@ def testing_where_clauses_1(query_module):
 
 def testing_where_clauses_2(query_module):
     models_module = sqlalchemy_models
-    query = query_module.get_query(models_module.Author).filter(models_module.Author.id != 1)
+    query = query_module.get_query(models_module.Author).filter(
+        models_module.Author.id != 1)
 
     rows = query.all()
     result = map(extract_row, rows)
@@ -45,7 +48,8 @@ def testing_where_clauses_2(query_module):
 
 def testing_where_clauses_3(query_module):
     models_module = sqlalchemy_models
-    query = query_module.get_query(models_module.Author).filter(models_module.Author.id > 1)
+    query = query_module.get_query(models_module.Author).filter(
+        models_module.Author.id > 1)
 
     rows = query.all()
     result = map(extract_row, rows)
@@ -54,7 +58,8 @@ def testing_where_clauses_3(query_module):
 
 def testing_where_clauses_4(query_module):
     models_module = sqlalchemy_models
-    query = query_module.get_query(models_module.Author).filter(models_module.Author.id < 2)
+    query = query_module.get_query(models_module.Author).filter(
+        models_module.Author.id < 2)
 
     rows = query.all()
     result = map(extract_row, rows)
@@ -63,7 +68,8 @@ def testing_where_clauses_4(query_module):
 
 def testing_where_clauses_5(query_module):
     models_module = sqlalchemy_models
-    query = query_module.get_query(models_module.Author).filter(models_module.Author.name == "Author1")
+    query = query_module.get_query(models_module.Author).filter(
+        models_module.Author.name == "Author1")
 
     rows = query.all()
     result = map(extract_row, rows)
@@ -72,7 +78,8 @@ def testing_where_clauses_5(query_module):
 
 def testing_where_clauses_6(query_module):
     models_module = sqlalchemy_models
-    query = query_module.get_query(models_module.Author).filter(models_module.Author.name != "Author1")
+    query = query_module.get_query(models_module.Author).filter(
+        models_module.Author.name != "Author1")
 
     rows = query.all()
     result = map(extract_row, rows)
@@ -89,6 +96,7 @@ def compare(function, model_a, model_b):
     else:
         return True
 
+
 DATA_INITIALIZED = False
 
 
@@ -103,28 +111,35 @@ class TestWhereClauses(unittest.TestCase):
             init_mock_objects(rome_models)
 
     def test_where_clauses_compatibility_1(self):
-        comparison_result = compare(testing_where_clauses_1, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_where_clauses_1, sqlalchemy_models,
+                                    rome_models)
         self.assertEquals(comparison_result, True)
 
     def test_where_clauses_compatibility_2(self):
-        comparison_result = compare(testing_where_clauses_2, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_where_clauses_2, sqlalchemy_models,
+                                    rome_models)
         self.assertEquals(comparison_result, True)
 
     def test_where_clauses_compatibility_3(self):
-        comparison_result = compare(testing_where_clauses_3, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_where_clauses_3, sqlalchemy_models,
+                                    rome_models)
         self.assertEquals(comparison_result, True)
 
     def test_where_clauses_compatibility_4(self):
-        comparison_result = compare(testing_where_clauses_4, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_where_clauses_4, sqlalchemy_models,
+                                    rome_models)
         self.assertEquals(comparison_result, True)
 
     def test_where_clauses_compatibility_5(self):
-        comparison_result = compare(testing_where_clauses_5, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_where_clauses_5, sqlalchemy_models,
+                                    rome_models)
         self.assertEquals(comparison_result, True)
 
     def test_where_clauses_compatibility_6(self):
-        comparison_result = compare(testing_where_clauses_5, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_where_clauses_5, sqlalchemy_models,
+                                    rome_models)
         self.assertEquals(comparison_result, True)
+
 
 if __name__ == '__main__':
     unittest.main()

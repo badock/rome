@@ -1,4 +1,4 @@
-from rome.conf.Configuration import get_config
+from rome.conf.configuration import get_config
 
 
 class DatabaseDriverInterface(object):
