@@ -21,6 +21,7 @@ def extract_row(x):
     else:
         return extract_column(x)
 
+
 """ It should implement the behaviour depicted in
 http://docs.sqlalchemy.org/en/latest/orm/loading_relationships.html """
 
@@ -54,7 +55,9 @@ def testing_attribute_selection_3(query_module):
 
 def testing_attribute_selection_4(query_module):
     models_module = sqlalchemy_models
-    query = query_module.get_query(models_module.Author, models_module.Author.id, models_module.Author.name)
+    query = query_module.get_query(models_module.Author,
+                                   models_module.Author.id,
+                                   models_module.Author.name)
 
     rows = query.all()
     result = map(extract_row, rows)
@@ -63,7 +66,8 @@ def testing_attribute_selection_4(query_module):
 
 def testing_attribute_selection_5(query_module):
     models_module = sqlalchemy_models
-    query = query_module.get_query(models_module.Book, models_module.Book.author_id)
+    query = query_module.get_query(models_module.Book,
+                                   models_module.Book.author_id)
 
     rows = query.all()
     result = map(extract_row, rows)
@@ -72,7 +76,9 @@ def testing_attribute_selection_5(query_module):
 
 def testing_attribute_selection_6(query_module):
     models_module = sqlalchemy_models
-    query = query_module.get_query(models_module.Book, models_module.Book.author_id, models_module.Author)
+    query = query_module.get_query(models_module.Book,
+                                   models_module.Book.author_id,
+                                   models_module.Author)
 
     rows = query.all()
     result = map(extract_row, rows)
@@ -81,7 +87,9 @@ def testing_attribute_selection_6(query_module):
 
 def testing_attribute_selection_7(query_module):
     models_module = sqlalchemy_models
-    query = query_module.get_query(models_module.Book, models_module.Book.author_id, models_module.Author, models_module.Author.name, models_module.Author.id)
+    query = query_module.get_query(
+        models_module.Book, models_module.Book.author_id, models_module.Author,
+        models_module.Author.name, models_module.Author.id)
 
     rows = query.all()
     result = map(extract_row, rows)
@@ -107,6 +115,7 @@ def compare(function, model_a, model_b):
     else:
         return True
 
+
 DATA_INITIALIZED = False
 
 
@@ -121,36 +130,45 @@ class TestAttributeSelection(unittest.TestCase):
             init_mock_objects(rome_models)
 
     def test_attribute_selection_compatibility_1(self):
-        comparison_result = compare(testing_attribute_selection_1, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_attribute_selection_1,
+                                    sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
 
     def test_attribute_selection_compatibility_2(self):
-        comparison_result = compare(testing_attribute_selection_2, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_attribute_selection_2,
+                                    sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
 
     def test_attribute_selection_compatibility_3(self):
-        comparison_result = compare(testing_attribute_selection_3, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_attribute_selection_3,
+                                    sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
 
     def test_attribute_selection_compatibility_4(self):
-        comparison_result = compare(testing_attribute_selection_4, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_attribute_selection_4,
+                                    sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
 
     def test_attribute_selection_compatibility_5(self):
-        comparison_result = compare(testing_attribute_selection_5, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_attribute_selection_5,
+                                    sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
 
     def test_attribute_selection_compatibility_6(self):
-        comparison_result = compare(testing_attribute_selection_6, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_attribute_selection_6,
+                                    sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
 
     def test_attribute_selection_compatibility_7(self):
-        comparison_result = compare(testing_attribute_selection_7, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_attribute_selection_7,
+                                    sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
 
     def test_attribute_selection_compatibility_8(self):
-        comparison_result = compare(testing_attribute_selection_8, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_attribute_selection_8,
+                                    sqlalchemy_models, rome_models)
         self.assertEquals(comparison_result, True)
+
 
 if __name__ == '__main__':
     unittest.main()

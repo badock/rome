@@ -23,6 +23,7 @@ def extract_row(x):
     else:
         return extract_column(x)
 
+
 """ It should implement the behaviour depicted in
 http://docs.sqlalchemy.org/en/latest/orm/loading_relationships.html """
 
@@ -73,6 +74,7 @@ def compare(function, model_a, model_b):
     else:
         return True
 
+
 DATA_INITIALIZED = False
 
 
@@ -87,20 +89,25 @@ class TestFunctions(unittest.TestCase):
             init_mock_objects(rome_models)
 
     def test_function_compatibility_1(self):
-        comparison_result = compare(testing_function_1, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_function_1, sqlalchemy_models,
+                                    rome_models)
         self.assertEquals(comparison_result, True)
 
     def test_function_compatibility_2(self):
-        comparison_result = compare(testing_function_2, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_function_2, sqlalchemy_models,
+                                    rome_models)
         self.assertEquals(comparison_result, True)
 
     def test_function_compatibility_3(self):
-        comparison_result = compare(testing_function_3, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_function_3, sqlalchemy_models,
+                                    rome_models)
         self.assertEquals(comparison_result, True)
 
     def test_function_compatibility_4(self):
-        comparison_result = compare(testing_function_4, sqlalchemy_models, rome_models)
+        comparison_result = compare(testing_function_4, sqlalchemy_models,
+                                    rome_models)
         self.assertEquals(comparison_result, True)
+
 
 if __name__ == '__main__':
     unittest.main()

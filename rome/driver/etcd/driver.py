@@ -54,7 +54,7 @@ easy_parallelize = easy_parallelize_sequence
 
 def chunks(l, n):
     for i in xrange(0, len(l), n):
-        yield l[i:i+n]
+        yield l[i:i + n]
 
 
 def flatten(container):
@@ -64,6 +64,7 @@ def flatten(container):
                 yield j
         else:
             yield i
+
 
 def convert_unicode_dict_to_utf8(d):
     if d is None:
@@ -85,7 +86,10 @@ class EtcdDriver(DatabaseDriverInterface):
         global eval_pool
         config = get_config()
         self.etcd_client = etcd.Client(port=2379)
-        self.dlm = Redlock([{"host": "localhost", "port": 6379, "db": 0}, ], retry_count=10)
+        self.dlm = Redlock([{"host": "localhost",
+                             "port": 6379,
+                             "db": 0},],
+                           retry_count=10)
 
     def add_key(self, tablename, key):
         """"""
@@ -108,14 +112,15 @@ class EtcdDriver(DatabaseDriverInterface):
         lock = etcd.Lock(self.etcd_client, next_key_table_lock)
 
         # Use the lock object:
-        lock.acquire(blocking=True, # will block until the lock is acquired
-              lock_ttl=None) # lock will live until we release it
+        lock.acquire(blocking=True,  # will block until the lock is acquired
+                     lock_ttl=None)  # lock will live until we release it
         lock.is_acquired()  #
-        lock.acquire(lock_ttl=60) # renew a lock
+        lock.acquire(lock_ttl=60)  # renew a lock
         curent_key = self.etcd_client.read(next_key_table_key)
         current_key_as_int = int(curent_key)
         new_key_as_int = current_key_as_int + 1
-        self.etcd_client.write(next_key_table_key, new_key_as_int, prevValue=curent_key)
+        self.etcd_client.write(next_key_table_key, new_key_as_int,
+                               prevValue=curent_key)
         lock.release()
         return new_key_as_int
 
@@ -132,7 +137,6 @@ class EtcdDriver(DatabaseDriverInterface):
 
     def put(self, tablename, key, value, secondary_indexes=[]):
         """"""
-
         """ Dump python object to JSON field. """
         json_value = ujson.dumps(value)
         etcd_key = "%s/%s" % (tablename, key)
@@ -140,7 +144,9 @@ class EtcdDriver(DatabaseDriverInterface):
         fetched = self.etcd_client.write("/%s" % (etcd_key), json_value)
         for secondary_index in secondary_indexes:
             secondary_value = value[secondary_index]
-            fetched = self.etcd_client.write("sec_index/%s/%s/%s/%s" % (tablename, secondary_index, secondary_value, etcd_sec_idx_key), etcd_sec_idx_key)
+            fetched = self.etcd_client.write("sec_index/%s/%s/%s/%s" % (
+                tablename, secondary_index, secondary_value, etcd_sec_idx_key
+            ), etcd_sec_idx_key)
         result = value if fetched else None
         result = convert_unicode_dict_to_utf8(result)
         return result
@@ -149,7 +155,9 @@ class EtcdDriver(DatabaseDriverInterface):
         """"""
         etcd_key = "/%s/%s" % (tablename, key)
         if hint is not None:
-            redis_keys = self.etcd_client.read("sec_index/%s/%s/%s" % (tablename, hint[0], hint[1]), recursive=True)
+            redis_keys = self.etcd_client.read("sec_index/%s/%s/%s" %
+                                               (tablename, hint[0], hint[1]),
+                                               recursive=True)
             etcd_key = redis_keys[0]
         try:
             fetched = self.etcd_client.read(etcd_key)
@@ -161,23 +169,20 @@ class EtcdDriver(DatabaseDriverInterface):
 
     def _resolve_keys(self, tablename, keys):
 
-        fetched = list(self.etcd_client.get(tablename+"/").children)
+        fetched = list(self.etcd_client.get(tablename + "/").children)
 
         if len(fetched) == 0:
             return []
 
         str_result = map(lambda x: x.value, fetched)
-
         """ When looking-up for a deleted object, driver return None, which should be filtered."""
         str_result = filter(lambda x: x is not None, str_result)
-
         """ Transform the list of JSON string into a single string (boost performances). """
         str_result = "[%s]" % (",".join(str_result))
-
         """ Parse result from JSON to python dict. """
         result = ujson.loads(str_result)
         result = map(lambda x: convert_unicode_dict_to_utf8(x), result)
-        result = filter(lambda x: x!= None, result)
+        result = filter(lambda x: x != None, result)
 
         return result
 
@@ -186,9 +191,10 @@ class EtcdDriver(DatabaseDriverInterface):
         if len(hints) == 0:
             keys = None
         else:
-            id_hints = filter(lambda x:x[0] == "id", hints)
-            non_id_hints = filter(lambda x:x[0] != "id", hints)
-            sec_keys = map(lambda h: "sec_index:%s:%s:%s" % (tablename, h[0], h[1]), non_id_hints)
+            id_hints = filter(lambda x: x[0] == "id", hints)
+            non_id_hints = filter(lambda x: x[0] != "id", hints)
+            sec_keys = map(lambda h: "sec_index:%s:%s:%s" %
+                           (tablename, h[0], h[1]), non_id_hints)
             keys = map(lambda x: "%s:id:%s" % (tablename, x[1]), id_hints)
             for sec_key in sec_keys:
                 keys += self.etcd_client.read(sec_key)

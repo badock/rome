@@ -21,12 +21,14 @@ def recursive_getattr(obj, key, default=None):
         if len(current_key) == 1:
             return current_object
         else:
-            return recursive_getattr(current_object, ".".join(sub_keys[1:]), default)
+            return recursive_getattr(current_object, ".".join(sub_keys[1:]),
+                                     default)
     else:
         if default:
             return default
         else:
-            raise Exception("Could not find property '%s' in %s" % (current_key, obj))
+            raise Exception("Could not find property '%s' in %s" %
+                            (current_key, obj))
 
 
 class ObjectAttributeRefresher(object):
@@ -45,11 +47,16 @@ class ObjectAttributeRefresher(object):
         if len(attr.prop._reverse_property) > 0:
             reverse_property = list(attr.prop._reverse_property)[0]
             entity_class = reverse_property.parent.entity
-            query = Query(entity_class).filter(attr.expression).filter(additional_expression)
+            query = Query(entity_class).filter(
+                attr.expression).filter(additional_expression)
             return (entity_class, query)
         else:
-            logging.info("Could not generate a query with those parameters: %s, %s" % (attr, additional_expression))
-            raise Exception("Could not generate a query with those parameters: %s, %s" % (attr, additional_expression))
+            logging.info(
+                "Could not generate a query with those parameters: %s, %s" %
+                (attr, additional_expression))
+            raise Exception(
+                "Could not generate a query with those parameters: %s, %s" %
+                (attr, additional_expression))
 
     def refresh_many_to_one(self, obj, attr_name, attr):
         for l, r in attr.property.local_remote_pairs:
@@ -57,8 +64,10 @@ class ObjectAttributeRefresher(object):
             r_value = getattr(obj, attr_name, None)
             if l_value is not None:
                 if r_value is None:
-                    (entity_class, query) = self._generate_query(attr, r.__eq__(l_value))
-                    relationship_field = LazyRelationship(query, entity_class, many=False)
+                    (entity_class,
+                     query) = self._generate_query(attr, r.__eq__(l_value))
+                    relationship_field = LazyRelationship(query, entity_class,
+                                                          many=False)
                     setattr(obj, attr_name, relationship_field)
             elif r_value is not None:
                 r_value_field_value = getattr(r_value, r.name, None)
@@ -88,8 +97,12 @@ class ObjectAttributeRefresher(object):
                 elif attr.property.direction is MANYTOMANY:
                     self.refresh_many_to_many(obj, attr_name, attr)
                 else:
-                    logging.error("Could not understand how to refresh the property '%s' of %s" % (attr, obj))
-                    raise Exception("Could not understand how to refresh the property '%s' of %s" % (attr, obj))
+                    logging.error(
+                        "Could not understand how to refresh the property '%s' of %s"
+                        % (attr, obj))
+                    raise Exception(
+                        "Could not understand how to refresh the property '%s' of %s"
+                        % (attr, obj))
         return result
 
 
@@ -100,10 +113,12 @@ class ObjectExtractor(object):
         result = {}
         for attr_name, attr in get_class_manager(obj).local_attrs.iteritems():
             if type(attr.property) is ColumnProperty:
-                attr_encoded_value = json_encoder.encode(getattr(obj, attr_name, None))
+                attr_encoded_value = json_encoder.encode(getattr(obj, attr_name,
+                                                                 None))
                 result[attr_name] = attr_encoded_value
             elif type(attr.property) is RelationshipProperty:
-                logging.info("Processing of RelationshipProperty is not yet implemented")
+                logging.info(
+                    "Processing of RelationshipProperty is not yet implemented")
         return result
 
 
@@ -148,4 +163,3 @@ class ObjectSaver(object):
         db_driver.remove_key(tablename, obj_as_dict["id"])
 
         return True
-

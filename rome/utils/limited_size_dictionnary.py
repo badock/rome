@@ -7,6 +7,7 @@ from collections import OrderedDict
 
 
 class LimitedSizeDictionnary(OrderedDict):
+
     def __init__(self, *args, **kwds):
         self.size_limit = kwds.pop("size_limit", None)
         OrderedDict.__init__(self, *args, **kwds)

@@ -41,9 +41,8 @@ class Encoder(object):
     be stored in database."""
 
     def __init__(self, request_uuid=uuid.uuid1()):
-        self.request_uuid = (request_uuid if request_uuid is not None
-                             else uuid.uuid1()
-                             )
+        self.request_uuid = (request_uuid if request_uuid is not None else
+                             uuid.uuid1())
         if not SIMPLE_CACHES.has_key(self.request_uuid):
             SIMPLE_CACHES[self.request_uuid] = {}
         if not COMPLEX_CACHES.has_key(self.request_uuid):
@@ -91,10 +90,7 @@ class Encoder(object):
     def ipnetwork_simplify(self, ipnetwork):
         """Simplify an IP address object."""
 
-        return {
-            "simplify_strategy": "ipnetwork",
-            "value": str(ipnetwork)
-        }
+        return {"simplify_strategy": "ipnetwork", "value": str(ipnetwork)}
 
     def process_field(self, field_value):
         """Inner function that processes a value."""
@@ -153,9 +149,8 @@ class Decoder(object):
 
     def __init__(self, request_uuid=uuid.uuid1()):
         """Constructor"""
-        self.request_uuid = (request_uuid if request_uuid is not None
-                             else uuid.uuid1()
-                             )
+        self.request_uuid = (request_uuid if request_uuid is not None else
+                             uuid.uuid1())
         if not CACHES.has_key(self.request_uuid):
             CACHES[self.request_uuid] = {}
         self.cache = CACHES[self.request_uuid]

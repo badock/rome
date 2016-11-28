@@ -6,28 +6,17 @@ discovery database backend.
 """
 
 import time
-
 import rome.driver.database_driver as database_driver
-
-try:
-    from oslo.utils import timeutils
-except:
-    from oslo_utils import timeutils
-
-# from oslo.db.exception import DBDeadlock
-try:
-    from oslo.db.exception import DBDeadlock
-except:
-    from oslo_db.exception import DBDeadlock
 
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
-def datetime_to_int(x):
-    return int(x.strftime('%s'))
+def datetime_to_int(date_object):
+    return int(date_object.strftime('%s'))
 
 
-current_milli_time = lambda: int(round(time.time() * 1000))
+def current_milli_time():
+    return int(round(time.time() * 1000))
 
 
 def merge_dicts(dict1, dict2):
@@ -36,15 +25,16 @@ def merge_dicts(dict1, dict2):
     return dict(dict1.items() + dict2.items())
 
 
-def current_milli_time():
-    return int(round(time.time() * 200))
-
-
-def get_objects(tablename, desimplify=True, request_uuid=None, skip_loading=False, hints=[]):
+def get_objects(tablename,
+                desimplify=True,
+                request_uuid=None,
+                skip_loading=False,
+                hints=[]):
     return database_driver.get_driver().getall(tablename, hints=hints)
 
 
 class LazyRelationship(object):
+
     def __init__(self, query, _class, many=True, request_uuid=None):
         self.query = query
         self.many = many
@@ -70,8 +60,6 @@ class LazyRelationship(object):
         if item == "iteritems":
             if self.is_relationship_list:
                 return self.data.iteritems
-            else:
-                None
         if item == "__nonzero__" and self.is_relationship_list:
             return getattr(self.data, "__len__", None)
         return getattr(self.data, item, None)

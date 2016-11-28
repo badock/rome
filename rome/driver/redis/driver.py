@@ -47,20 +47,24 @@ def easy_parallelize_eventlet(f, sequence):
     green_pool_size = len(sequence) + 1
     pool = eventlet.GreenPool(size=green_pool_size)
     q = Queue()
+
     def wrapp_f(f, e, q):
         # q.put(f(e))
         f(e)
+
     result = []
     for e in sequence:
         pool.spawn_n(f, e)
     pool.waitall()
     return result
 
+
 easy_parallelize = easy_parallelize_sequence
+
 
 def chunks(l, n):
     for i in xrange(0, len(l), n):
-        yield l[i:i+n]
+        yield l[i:i + n]
 
 
 def flatten(container):
@@ -70,6 +74,7 @@ def flatten(container):
                 yield j
         else:
             yield i
+
 
 def convert_unicode_dict_to_utf8(d):
     if d is None:
@@ -90,8 +95,13 @@ class RedisDriver(DatabaseDriverInterface):
     def __init__(self):
         global eval_pool
         config = get_config()
-        self.redis_client = redis.StrictRedis(host=config.host(), port=config.port(), db=0)
-        self.dlm = Redlock([{"host": "localhost", "port": 6379, "db": 0}, ], retry_count=10)
+        self.redis_client = redis.StrictRedis(host=config.host(),
+                                              port=config.port(),
+                                              db=0)
+        self.dlm = Redlock([{"host": "localhost",
+                             "port": 6379,
+                             "db": 0},],
+                           retry_count=10)
 
     def add_key(self, tablename, key):
         """"""
@@ -117,23 +127,28 @@ class RedisDriver(DatabaseDriverInterface):
 
     def incr_version_number(self, tablename):
         """"""
-        version_number = self.redis_client.incr("version_number:%s" % (tablename), 1)
+        version_number = self.redis_client.incr("version_number:%s" %
+                                                (tablename), 1)
         return version_number
 
     def get_version_number(self, tablename):
         """"""
-        version_number = self.redis_client.get("version_number:%s" % (tablename))
+        version_number = self.redis_client.get("version_number:%s" %
+                                               (tablename))
         return version_number
 
     def put(self, tablename, key, value, secondary_indexes=[]):
         """"""
-
         """ Dump python object to JSON field. """
         json_value = ujson.dumps(value)
-        fetched = self.redis_client.hset(tablename, "%s:id:%s" % (tablename, key), json_value)
+        fetched = self.redis_client.hset(tablename, "%s:id:%s" %
+                                         (tablename, key), json_value)
         for secondary_index in secondary_indexes:
             secondary_value = value[secondary_index]
-            fetched = self.redis_client.sadd("sec_index:%s:%s:%s" % (tablename, secondary_index, secondary_value), "%s:id:%s" % (tablename, key))
+            fetched = self.redis_client.sadd("sec_index:%s:%s:%s" %
+                                             (tablename, secondary_index,
+                                              secondary_value), "%s:id:%s" %
+                                             (tablename, key))
         result = value if fetched else None
         result = convert_unicode_dict_to_utf8(result)
         self.incr_version_number(tablename)
@@ -143,10 +158,11 @@ class RedisDriver(DatabaseDriverInterface):
         """"""
         redis_key = "%s:id:%s" % (tablename, key)
         if hint is not None:
-            redis_keys = self.redis_client.smembers("sec_index:%s:%s:%s" % (tablename, hint[0], hint[1]))
+            redis_keys = self.redis_client.smembers("sec_index:%s:%s:%s" %
+                                                    (tablename, hint[0],
+                                                     hint[1]))
             redis_key = redis_keys[0]
         fetched = self.redis_client.hget(tablename, redis_key)
-
         """ Parse result from JSON to python dict. """
         result = ujson.loads(fetched) if fetched is not None else None
         return result
@@ -155,18 +171,17 @@ class RedisDriver(DatabaseDriverInterface):
         result = []
         if len(keys) > 0:
             keys = filter(lambda x: x != "None" and x != None, keys)
-            str_result = self.redis_client.hmget(tablename, sorted(keys, key=lambda x: x.split(":")[-1]))
-
+            str_result = self.redis_client.hmget(
+                tablename, sorted(keys,
+                                  key=lambda x: x.split(":")[-1]))
             """ When looking-up for a deleted object, redis's driver return None, which should be filtered."""
             str_result = filter(lambda x: x is not None, str_result)
-
             """ Transform the list of JSON string into a single string (boost performances). """
             str_result = "[%s]" % (",".join(str_result))
-
             """ Parse result from JSON to python dict. """
             result = ujson.loads(str_result)
             result = map(lambda x: convert_unicode_dict_to_utf8(x), result)
-            result = filter(lambda x: x!= None, result)
+            result = filter(lambda x: x != None, result)
         return result
 
     def getall(self, tablename, hints=[]):
@@ -183,9 +198,10 @@ class RedisDriver(DatabaseDriverInterface):
         if len(hints) == 0:
             keys = self.keys(tablename)
         else:
-            id_hints = filter(lambda x:x[0] == "id", hints)
-            non_id_hints = filter(lambda x:x[0] != "id", hints)
-            sec_keys = map(lambda h: "sec_index:%s:%s:%s" % (tablename, h[0], h[1]), non_id_hints)
+            id_hints = filter(lambda x: x[0] == "id", hints)
+            non_id_hints = filter(lambda x: x[0] != "id", hints)
+            sec_keys = map(lambda h: "sec_index:%s:%s:%s" %
+                           (tablename, h[0], h[1]), non_id_hints)
             keys = map(lambda x: "%s:id:%s" % (tablename, x[1]), id_hints)
             for sec_key in sec_keys:
                 keys += self.redis_client.smembers(sec_key)
@@ -202,9 +218,16 @@ class RedisClusterDriver(DatabaseDriverInterface):
 
     def __init__(self):
         config = get_config()
-        startup_nodes = map(lambda x: {"host": x, "port": "%s" % (config.port())}, config.cluster_nodes())
-        self.redis_client = rediscluster.StrictRedisCluster(startup_nodes=startup_nodes, decode_responses=True)
-        self.dlm = Redlock([{"host": "localhost", "port": 6379, "db": 0}, ], retry_count=10)
+        startup_nodes = map(
+            lambda x: {"host": x,
+                       "port": "%s" % (config.port())}, config.cluster_nodes())
+        self.redis_client = rediscluster.StrictRedisCluster(
+            startup_nodes=startup_nodes,
+            decode_responses=True)
+        self.dlm = Redlock([{"host": "localhost",
+                             "port": 6379,
+                             "db": 0},],
+                           retry_count=10)
 
     def add_key(self, tablename, key):
         """"""
@@ -230,23 +253,28 @@ class RedisClusterDriver(DatabaseDriverInterface):
 
     def incr_version_number(self, tablename):
         """"""
-        version_number = self.redis_client.incr("version_number:%s" % (tablename), 1)
+        version_number = self.redis_client.incr("version_number:%s" %
+                                                (tablename), 1)
         return version_number
 
     def get_version_number(self, tablename):
         """"""
-        version_number = self.redis_client.get("version_number:%s" % (tablename))
+        version_number = self.redis_client.get("version_number:%s" %
+                                               (tablename))
         return version_number
 
     def put(self, tablename, key, value, secondary_indexes=[]):
         """"""
-
         """ Dump python object to JSON field. """
         json_value = ujson.dumps(value)
-        fetched = self.redis_client.hset(tablename, "%s:id:%s" % (tablename, key), json_value)
+        fetched = self.redis_client.hset(tablename, "%s:id:%s" %
+                                         (tablename, key), json_value)
         for secondary_index in secondary_indexes:
             secondary_value = value[secondary_index]
-            fetched = self.redis_client.sadd("sec_index:%s:%s:%s" % (tablename, secondary_index, secondary_value), "%s:id:%s" % (tablename, key))
+            fetched = self.redis_client.sadd("sec_index:%s:%s:%s" %
+                                             (tablename, secondary_index,
+                                              secondary_value), "%s:id:%s" %
+                                             (tablename, key))
         result = value if fetched else None
         result = convert_unicode_dict_to_utf8(result)
         self.incr_version_number(tablename)
@@ -256,10 +284,11 @@ class RedisClusterDriver(DatabaseDriverInterface):
         """"""
         redis_key = "%s:id:%s" % (tablename, key)
         if hint is not None:
-            redis_keys = self.redis_client.smembers("sec_index:%s:%s:%s" % (tablename, hint[0], hint[1]))
+            redis_keys = self.redis_client.smembers("sec_index:%s:%s:%s" %
+                                                    (tablename, hint[0],
+                                                     hint[1]))
             redis_key = redis_keys[0]
         fetched = self.redis_client.hget(tablename, redis_key)
-
         """ Parse result from JSON to python dict. """
         result = ujson.loads(fetched) if fetched is not None else None
         return result
@@ -268,18 +297,17 @@ class RedisClusterDriver(DatabaseDriverInterface):
         result = []
         if len(keys) > 0:
             keys = filter(lambda x: x != "None" and x != None, keys)
-            str_result = self.redis_client.hmget(tablename, sorted(keys, key=lambda x: x.split(":")[-1]))
-
+            str_result = self.redis_client.hmget(
+                tablename, sorted(keys,
+                                  key=lambda x: x.split(":")[-1]))
             """ When looking-up for a deleted object, redis's driver return None, which should be filtered."""
             str_result = filter(lambda x: x is not None, str_result)
-
             """ Transform the list of JSON string into a single string (boost performances). """
             str_result = "[%s]" % (",".join(str_result))
-
             """ Parse result from JSON to python dict. """
             result = ujson.loads(str_result)
             result = map(lambda x: convert_unicode_dict_to_utf8(x), result)
-            result = filter(lambda x: x!= None, result)
+            result = filter(lambda x: x != None, result)
         return result
 
     def getall(self, tablename, hints=[]):
@@ -296,9 +324,10 @@ class RedisClusterDriver(DatabaseDriverInterface):
         if len(hints) == 0:
             keys = self.keys(tablename)
         else:
-            id_hints = filter(lambda x:x[0] == "id", hints)
-            non_id_hints = filter(lambda x:x[0] != "id", hints)
-            sec_keys = map(lambda h: "sec_index:%s:%s:%s" % (tablename, h[0], h[1]), non_id_hints)
+            id_hints = filter(lambda x: x[0] == "id", hints)
+            non_id_hints = filter(lambda x: x[0] != "id", hints)
+            sec_keys = map(lambda h: "sec_index:%s:%s:%s" %
+                           (tablename, h[0], h[1]), non_id_hints)
             keys = map(lambda x: "%s:id:%s" % (tablename, x[1]), id_hints)
             for sec_key in sec_keys:
                 keys += self.redis_client.smembers(sec_key)

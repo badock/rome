@@ -37,6 +37,7 @@ class Query(object):
         if hasattr(self.sqlalchemy_query, item):
             result = getattr(self.sqlalchemy_query, item, None)
             if isinstance(result, types.MethodType):
+
                 def anonymous_func(*args, **kwargs):
                     call_result = result(*args, **kwargs)
                     if isinstance(call_result, SqlAlchemyQuery):
@@ -44,6 +45,7 @@ class Query(object):
                         new_query._set_query(call_result)
                         return new_query
                     return call_result
+
                 return anonymous_func
             return result
         return super(object, self).__getattr__(item)
@@ -53,7 +55,8 @@ class Query(object):
         for description in self.sqlalchemy_query.column_descriptions:
             if "entity" in description:
                 declarative_meta = description["entity"]
-                entity_class_registry_instance_weak = getattr(declarative_meta, "_decl_class_registry", None)
+                entity_class_registry_instance_weak = getattr(
+                    declarative_meta, "_decl_class_registry", None)
                 if entity_class_registry_instance_weak is not None:
                     entity_class_registry = {}
                     for elmnt in entity_class_registry_instance_weak.values():
@@ -81,39 +84,48 @@ class Query(object):
             one_is_an_object = False
             for column_description in column_descriptions:
                 if type(column_description["type"]) in [Integer, String]:
-                    row_key = column_description["entity"].__table__.name.capitalize()
+                    row_key = column_description["entity"].__table__.name.capitalize(
+                    )
                     property_name = column_description["name"]
                     value = None
                     if row_key in row and property_name in row[row_key]:
                         value = row[row_key].get(property_name, None)
                     else:
                         """ It seems that we are parsing the result of a function call """
-                        column_description_expr = column_description.get("expr", None)
+                        column_description_expr = column_description.get("expr",
+                                                                         None)
                         if column_description_expr is not None:
                             property_name = str(column_description_expr)
                             value = row.get(property_name, None)
                     if value is not None:
                         final_row += [value]
                     else:
-                        logging.error("Could not understand how to get the value of '%s' with this: '%s'" % (column_description.get("expr", "??"), row))
+                        logging.error(
+                            "Could not understand how to get the value of '%s' with this: '%s'"
+                            % (column_description.get("expr", "??"), row))
                 elif type(column_description["type"]) == DeclarativeMeta:
                     one_is_an_object = True
-                    row_key = column_description["entity"].__table__.name.capitalize()
+                    row_key = column_description["entity"].__table__.name.capitalize(
+                    )
                     new_object = column_description["entity"]()
-                    attribute_names = map(lambda x: x.key, list(column_description["entity"].__table__.columns))
+                    attribute_names = map(lambda x: x.key, list(
+                        column_description["entity"].__table__.columns))
                     for attribute_name in attribute_names:
-                        value = decoder.decode(row[row_key].get(attribute_name, None))
+                        value = decoder.decode(row[row_key].get(attribute_name,
+                                                                None))
                         setattr(new_object, attribute_name, value)
                     final_row += [new_object]
                 else:
-                    logging.error("Unsupported type: '%s'" % (column_description["type"]))
+                    logging.error("Unsupported type: '%s'" %
+                                  (column_description["type"]))
             if not one_is_an_object:
                 return [final_row]
             else:
                 return final_row
 
         decoder = Decoder()
-        final_rows = map(lambda r: row_function(r, self.sqlalchemy_query.column_descriptions, decoder), rows)
+        final_rows = map(lambda r: row_function(
+            r, self.sqlalchemy_query.column_descriptions, decoder), rows)
 
         if len(self.sqlalchemy_query.column_descriptions) == 1:
             # Flatten the list
