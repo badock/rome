@@ -4,7 +4,7 @@ import uuid
 from rome.core.utils import current_milli_time
 from rome.driver.redis.lock import ClusterLock
 
-from utils import ObjectSaver
+from rome.core.session.utils import ObjectSaver
 from oslo_db.exception import DBDeadlock
 
 
