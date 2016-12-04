@@ -119,8 +119,7 @@ class Query(object):
                             % (column_description.get("expr", "??"), row))
                 elif type(column_description["type"]) == DeclarativeMeta:
                     one_is_an_object = True
-                    row_key = column_description["entity"].__table__.name.capitalize(
-                    )
+                    row_key = column_description["entity"].__table__.name
                     new_object = column_description["entity"]()
                     attribute_names = map(lambda x: x.key, list(
                         column_description["entity"].__table__.columns))
@@ -128,6 +127,8 @@ class Query(object):
                         value = decoder.decode(row[row_key].get(attribute_name,
                                                                 None))
                         setattr(new_object, attribute_name, value)
+                    if "___version_number" in row[row_key]:
+                        setattr(new_object, "___version_number", row[row_key]["___version_number"])
                     final_row += [new_object]
                 else:
                     logging.error("Unsupported type: '%s'" %
@@ -158,3 +159,11 @@ class Query(object):
             return objects[0]
         else:
             return None
+
+    def count(self):
+        """
+        Executes the query and returns the number of matching rows.
+        :return: an int corresponding of the number of rows matching the request.
+        """
+        objects = self.all()
+        return len(objects)

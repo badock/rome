@@ -112,6 +112,7 @@ class RedisDriver(DatabaseDriverInterface):
         redis_key = "%s:id:%s" % (tablename, key)
         self.redis_client.hdel(tablename, redis_key)
         self.incr_version_number(tablename)
+        self.reset_object_version_number(tablename, key)
         pass
 
     def next_key(self, tablename):
@@ -131,14 +132,41 @@ class RedisDriver(DatabaseDriverInterface):
                                                 (tablename), 1)
         return version_number
 
+    def incr_object_version_number(self, tablename, id):
+        """"""
+        version_number = self.redis_client.incr("object_version_number:%s:%s" %
+                                                (tablename, id), 1)
+        return version_number
+
+    def reset_object_version_number(self, tablename, id):
+        """"""
+        version_number = self.redis_client.set("object_version_number:%s:%s" %
+                                                (tablename, id), 0)
+        return version_number
+
     def get_version_number(self, tablename):
         """"""
         version_number = self.redis_client.get("version_number:%s" %
                                                (tablename))
         return version_number
 
+    def get_object_version_number(self, tablename, key):
+        """"""
+        version_number = self.redis_client.get("object_version_number:%s:%s" %
+                                               (tablename, key))
+        if version_number is not None:
+            return int(version_number)
+        else:
+            return 0
+
     def put(self, tablename, key, value, secondary_indexes=[]):
         """"""
+        # Increase version numbers of the table and the object
+        self.incr_version_number(tablename)
+        self.incr_object_version_number(tablename, key)
+        # Add the version number
+        object_version_number = self.get_object_version_number(tablename, key)
+        value["___version_number"] = object_version_number
         """ Dump python object to JSON field. """
         json_value = ujson.dumps(value)
         fetched = self.redis_client.hset(tablename, "%s:id:%s" %
@@ -151,7 +179,6 @@ class RedisDriver(DatabaseDriverInterface):
                                              (tablename, key))
         result = value if fetched else None
         result = convert_unicode_dict_to_utf8(result)
-        self.incr_version_number(tablename)
         return result
 
     def get(self, tablename, key, hint=None):
@@ -163,7 +190,7 @@ class RedisDriver(DatabaseDriverInterface):
                                                      hint[1]))
             redis_key = redis_keys[0]
         fetched = self.redis_client.hget(tablename, redis_key)
-        """ Parse result from JSON to python dict. """
+        # Parse result from JSON to python dict.
         result = ujson.loads(fetched) if fetched is not None else None
         return result
 
@@ -238,6 +265,7 @@ class RedisClusterDriver(DatabaseDriverInterface):
         redis_key = "%s:id:%s" % (tablename, key)
         self.redis_client.hdel(tablename, redis_key)
         self.incr_version_number(tablename)
+        self.reset_object_version_number(tablename, key)
         pass
 
     def next_key(self, tablename):
@@ -257,14 +285,41 @@ class RedisClusterDriver(DatabaseDriverInterface):
                                                 (tablename), 1)
         return version_number
 
+    def incr_object_version_number(self, tablename, id):
+        """"""
+        version_number = self.redis_client.incr("object_version_number:%s:%s" %
+                                                (tablename, id), 1)
+        return version_number
+
+    def reset_object_version_number(self, tablename, id):
+        """"""
+        version_number = self.redis_client.set("object_version_number:%s:%s" %
+                                               (tablename, id), 0)
+        return version_number
+
     def get_version_number(self, tablename):
         """"""
         version_number = self.redis_client.get("version_number:%s" %
                                                (tablename))
         return version_number
 
+    def get_object_version_number(self, tablename, key):
+        """"""
+        version_number = self.redis_client.get("object_version_number:%s:%s" %
+                                               (tablename, key))
+        if version_number is not None:
+            return int(version_number)
+        else:
+            return 0
+
     def put(self, tablename, key, value, secondary_indexes=[]):
         """"""
+        # Increase version numbers of the table and the object
+        self.incr_version_number(tablename)
+        self.incr_object_version_number(tablename, key)
+        # Add the version number
+        object_version_number = self.get_object_version_number(tablename, key)
+        value["___version_number"] = object_version_number
         """ Dump python object to JSON field. """
         json_value = ujson.dumps(value)
         fetched = self.redis_client.hset(tablename, "%s:id:%s" %
@@ -277,7 +332,6 @@ class RedisClusterDriver(DatabaseDriverInterface):
                                              (tablename, key))
         result = value if fetched else None
         result = convert_unicode_dict_to_utf8(result)
-        self.incr_version_number(tablename)
         return result
 
     def get(self, tablename, key, hint=None):
@@ -289,7 +343,7 @@ class RedisClusterDriver(DatabaseDriverInterface):
                                                      hint[1]))
             redis_key = redis_keys[0]
         fetched = self.redis_client.hget(tablename, redis_key)
-        """ Parse result from JSON to python dict. """
+        # Parse result from JSON to python dict.
         result = ujson.loads(fetched) if fetched is not None else None
         return result
 

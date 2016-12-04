@@ -5,6 +5,7 @@ from rome.core.utils import current_milli_time
 from rome.driver.redis.lock import ClusterLock
 
 from rome.core.session.utils import ObjectSaver
+from rome.driver.database_driver import get_driver
 from oslo_db.exception import DBDeadlock
 
 
@@ -12,7 +13,7 @@ class SessionDeadlock(Exception):
     pass
 
 
-class SessionControlledExecution():
+class SessionControlledExecution(object):
 
     def __init__(self, session, max_try=1):
         self.session = session
@@ -29,62 +30,94 @@ class SessionControlledExecution():
             self.session.flush()
 
 
+def already_in(obj, objects):
+    """
+    Checks if a python object is already in a list of python objects
+    :param obj: a python object
+    :param objects: a list of python objects
+    :return: True if the object is already in the given list. False in the other case.
+    """
+    if obj in objects:
+        return True
+    obj_signature = "%s" % (obj)
+    existing_signature = map(lambda x: "%s" % (x), objects)
+    return obj_signature in existing_signature
+
+
 class Session(object):
 
     max_duration = 300
 
-    def __init__(self):
+    def __init__(self, check_version_numbers=True):
         self.session_id = uuid.uuid1()
         self.session_objects_add = []
         self.session_objects_delete = []
         self.session_timeout = current_milli_time() + Session.max_duration
+        self.check_version_numbers = check_version_numbers
         self.dlm = ClusterLock()
         self.acquired_locks = []
         self.already_saved = []
 
-    def already_in(self, obj, objects):
-        if obj in objects:
-            return True
-        obj_signature = "%s" % (obj)
-        existing_signature = map(lambda x: "%s" % (x), objects)
-        return obj_signature in existing_signature
-
     def add(self, *objs):
+        """
+        Add the given objects to the list of objects that should be committed via this session.
+        :param objs: a list of python objects
+        """
         for obj in objs:
             if hasattr(obj, "is_loaded"):
                 if obj.is_loaded:
                     obj = obj.data
                 else:
                     continue
-            if not self.already_in(obj, self.session_objects_add):
+            if not already_in(obj, self.session_objects_add):
                 self.session_objects_add += [obj]
 
     def add_all(self, objs):
+        """
+        Add the given objects to the list of objects that should be committed via this session.
+        :param objs: a list of python objects
+        """
         for obj in objs:
             self.add(obj)
 
     def update(self, obj):
-        if self.already_in(obj, self.session_objects_add):
+        """
+        Add the given objects to the list of objects that should be committed via this session. If
+        the object was already in the list of objects that should be committed, its previous value
+        will be replaced by the one given as a parameter.
+        :param obj: a list of python objects
+        """
+        if already_in(obj, self.session_objects_add):
             filtered = filter(lambda x: ("%s" % (x)) != "%s" % (obj),
                               self.session_objects_add)
             self.session_objects_add = filtered
-        if not self.already_in(obj, self.session_objects_add):
+        if not already_in(obj, self.session_objects_add):
             self.session_objects_add += [obj]
 
     def delete(self, *objs):
+        """
+        Add the given objects to the list of objects that should be deleted via this session.
+        :param objs: a list of python objects
+        """
         for obj in objs:
             if hasattr(obj, "is_loaded"):
                 if obj.is_loaded:
                     obj = obj.data
                 else:
                     continue
-            if not self.already_in(obj, self.session_objects_delete):
+            if not already_in(obj, self.session_objects_delete):
                 self.session_objects_delete += [obj]
 
-    def query(self, *entities, **kwargs):
+    def query(self, *args, **kwargs):
+        """
+        Provide a new query object
+        :param args: arguments of the query
+        :param kwargs: key/value arguments of the query
+        :return: a Query object
+        """
         from rome.core.orm.query import Query
         kwargs["__session"] = self
-        query = Query(*entities, **kwargs)
+        query = Query(*args, **kwargs)
         return query
 
     def begin(self, *args, **kwargs):
@@ -111,6 +144,7 @@ class Session(object):
     def can_commit_request(self):
         locks = []
         success = True
+        # Acquire lock on each objects of the session
         for obj in self.session_objects_add + self.session_objects_delete:
             if obj.id is not None:
                 lock_name = "session_lock_%s_%s" % (obj.__tablename__, obj.id)
@@ -119,6 +153,16 @@ class Session(object):
                 else:
                     success = False
                     break
+        if success and self.check_version_numbers:
+            # Check the version number of each object
+            driver = get_driver()
+            for obj in self.session_objects_add + self.session_objects_delete:
+                db_current_version = driver.get_object_version_number(obj.__table__.name, obj.id)
+                version_number = getattr(obj, "___version_number", None)
+                if db_current_version != version_number:
+                    success = False
+                    break
+        # Now, we can commit or abort the modifications
         if not success:
             logging.error("session %s encountered a conflict, aborting commit" %
                           (self.session_id))
@@ -126,6 +170,8 @@ class Session(object):
                 self.dlm.unlock(lock)
             raise DBDeadlock()
         else:
+            logging.error("session %s has been committed" %
+                          (self.session_id))
             self.acquired_locks = locks
         return success
 
