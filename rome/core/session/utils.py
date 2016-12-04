@@ -5,8 +5,28 @@ from rome.core.dataformat.json import Encoder
 from rome.core.utils import LazyRelationship
 from sqlalchemy.orm.interfaces import ONETOMANY, MANYTOONE, MANYTOMANY
 from sqlalchemy.orm.properties import ColumnProperty, RelationshipProperty
+from oslo_db.exception import DBDeadlock
 
 from rome.core.orm.query import Query
+import functools
+import time
+import random
+
+
+def retry_on_db_deadlock(f):
+    """Naive decorator that enables to retry execution of a session if Deadlock was received."""
+    @functools.wraps(f)
+    def wrapped(*args, **kwargs):
+        while True:
+            try:
+                return f(*args, **kwargs)
+            except DBDeadlock:
+                logging.warn(("Deadlock detected when running '%s': Retrying...") % (f.__name__))
+                # Retry!
+                time.sleep(random.uniform(0.01, 0.20))
+                continue
+    functools.update_wrapper(wrapped, f)
+    return wrapped
 
 
 def get_class_manager(obj):

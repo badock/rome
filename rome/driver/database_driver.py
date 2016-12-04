@@ -18,6 +18,12 @@ class DatabaseDriverInterface(object):
     def put(self, tablename, key, value, secondary_indexes=[]):
         raise NotImplementedError
 
+    def get_version_number(self, tablename):
+        raise NotImplementedError
+
+    def get_object_version_number(self, tablename, key):
+        raise NotImplementedError
+
     def get(self, tablename, key, hint=None):
         raise NotImplementedError
 

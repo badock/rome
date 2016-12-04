@@ -1,26 +1,33 @@
+"""Utils module.
+
+This module contains functions that are used by Rome's queries to understand SQLAlchemy's queries.
+
+All the code of this module is inspired from the following stackoverflow question:
+  http://stackoverflow.com/questions/5631078/sqlalchemy-print-the-actual-query
+
+"""
+
 from sqlalchemy.engine.default import DefaultDialect
 from sqlalchemy.sql.sqltypes import String, DateTime, NullType
-
-# Following code inspired from http://stackoverflow.com/questions/5631078/sqlalchemy-print-the-actual-query
-
-# python2/3 compatible.
-PY3 = str is not bytes
-text = str if PY3 else unicode
-int_type = int if PY3 else (int, long)
-str_type = str if PY3 else (str, unicode)
 
 
 class StringLiteral(String):
     """Teach SA how to literalize various things."""
 
     def literal_processor(self, dialect):
+        # python2/3 compatible.
+        is_python3 = str is not bytes
+        text_type = str if is_python3 else unicode
+        int_type = int if is_python3 else (int, long)
+        str_type = str if is_python3 else (str, unicode)
+
         super_processor = super(StringLiteral, self).literal_processor(dialect)
 
         def process(value):
             if isinstance(value, int_type):
-                return text(value)
+                return text_type(value)
             if not isinstance(value, str_type):
-                value = text(value)
+                value = text_type(value)
             result = super_processor(value)
             if isinstance(result, bytes):
                 result = result.decode(dialect.encoding)
@@ -30,6 +37,8 @@ class StringLiteral(String):
 
 
 class LiteralDialect(DefaultDialect):
+    """Dialect that will enable to literalize datetime and NullType values."""
+
     colspecs = {
         # prevent various encoding explosions
         String: StringLiteral,
@@ -41,7 +50,13 @@ class LiteralDialect(DefaultDialect):
 
 
 def get_literal_query(statement):
-    """NOTE: This is entirely insecure. DO NOT execute the resulting strings."""
+    """
+    Extracts the SQL query corresponding to a SQLAlchemy query.
+
+    NOTE: This is entirely insecure. DO NOT execute the resulting strings.
+    :param statement: a query object
+    :return: a string which corresponds to the corresponding SQL query
+    """
     import sqlalchemy.orm
     if isinstance(statement, sqlalchemy.orm.Query):
         statement = statement.selectable

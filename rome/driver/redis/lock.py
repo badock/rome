@@ -1,5 +1,3 @@
-__author__ = 'jonathan'
-
 # This code is inspired by the code found at, in order to provide
 # an implementation with the new cluster architecture provided by
 # redis 3:
@@ -14,11 +12,10 @@ import uuid
 import redis
 import rediscluster
 from rome.conf.configuration import get_config
+from rome.core.utils import merge_dicts as merge_dicts
 
 # Python 3 compatibility
 string_type = getattr(__builtins__, 'basestring', str)
-
-from rome.core.utils import merge_dicts as merge_dicts
 
 
 class ClusterLock(object):
