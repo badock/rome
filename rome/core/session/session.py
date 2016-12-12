@@ -23,7 +23,7 @@ class SessionControlledExecution(object):
     def __enter__(self):
         pass
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, _type, value, traceback):
         if traceback:
             logging.info(traceback)
         else:
@@ -121,15 +121,33 @@ class Session(object):
         return query
 
     def begin(self, *args, **kwargs):
+        """
+        Start a transaction.
+        :param args: list of arguments
+        :param kwargs: key/value arguments
+        :return: a SessionControlledExecution that will be used to control the execution of the
+        transaction
+        """
         return SessionControlledExecution(session=self)
 
     def flush(self, *args, **kwargs):
+        """
+        Commit modifications in a transactional way.
+        :param args: list of arguments
+        :param kwargs: key/value arguments
+        """
         logging.info("flushing session %s" % (self.session_id))
         if self.can_commit_request():
             logging.info("committing session %s" % (self.session_id))
             self.commit()
 
     def can_be_used(self, obj):
+        """
+        Check if the given object can be used by the session. This function checks if the object
+        belong to another session.
+        :param obj: a python object
+        :return: a boolean which is True if the object can be used.
+        """
         if getattr(obj, "_session", None) is None:
             return True
         else:
@@ -142,6 +160,10 @@ class Session(object):
         return False
 
     def can_commit_request(self):
+        """
+        Check if the current session can commit its modifications in a transactional way.
+        :return: a boolean which is True if the transaction can be committed.
+        """
         locks = []
         success = True
         # Acquire lock on each objects of the session
@@ -176,6 +198,9 @@ class Session(object):
         return success
 
     def commit(self):
+        """
+        Commit the modifications of the session.
+        """
         logging.info("session %s will start commit" % (self.session_id))
         object_saver = ObjectSaver(self)
         for obj in self.session_objects_add:

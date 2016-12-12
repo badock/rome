@@ -13,27 +13,43 @@ import time
 import random
 
 
-def retry_on_db_deadlock(f):
-    """Naive decorator that enables to retry execution of a session if Deadlock was received."""
-    @functools.wraps(f)
+def retry_on_db_deadlock(func):
+    """
+    Naive decorator that enables to retry execution of a session if Deadlock was received.
+    :param func: a python function that will be executed
+    :return: an anonymous function that will wrap the execution of the function
+    """
+    @functools.wraps(func)
     def wrapped(*args, **kwargs):
         while True:
             try:
-                return f(*args, **kwargs)
+                return func(*args, **kwargs)
             except DBDeadlock:
-                logging.warn(("Deadlock detected when running '%s': Retrying...") % (f.__name__))
+                logging.warn("Deadlock detected when running '%s': Retrying..." % (func.__name__))
                 # Retry!
                 time.sleep(random.uniform(0.01, 0.20))
                 continue
-    functools.update_wrapper(wrapped, f)
+    functools.update_wrapper(wrapped, func)
     return wrapped
 
 
 def get_class_manager(obj):
+    """
+    Extract the class manager of an object
+    :param obj: a python object
+    :return: the class manager
+    """
     return getattr(obj, "_sa_class_manager", None)
 
 
 def recursive_getattr(obj, key, default=None):
+    """
+    Recursive getter. Resolve properties such as "foo.bar.x.value" on a python object.
+    :param obj: a python object
+    :param key: a string
+    :param default: default value
+    :return: the value corresponding to the composed key
+    """
     sub_keys = key.split(".")
     current_key = sub_keys[0]
     if hasattr(obj, current_key):
@@ -54,13 +70,20 @@ def recursive_getattr(obj, key, default=None):
 class ObjectAttributeRefresher(object):
 
     def refresh_one_to_many(self, obj, attr_name, attr):
-        for l, r in attr.property.local_remote_pairs:
-            l_value = getattr(obj, attr_name, None)
-            if l_value:
-                for e in l_value:
-                    e_value = getattr(e, r.name, None)
-                    if e_value is None or e_value != l_value:
-                        setattr(e, r.name, e_value)
+        """
+        Refresh a one-to-many relationship of a python object.
+        :param obj: a python object
+        :param attr_name: name of the relationship field
+        :param attr: relationship object
+        :return: a boolean which is True if the refresh worked
+        """
+        for left, right in attr.property.local_remote_pairs:
+            left_value = getattr(obj, attr_name, None)
+            if left_value:
+                for element in left_value:
+                    element_value = getattr(element, right.name, None)
+                    if element_value is None or element_value != left_value:
+                        setattr(element, right.name, element_value)
         return True
 
     def _generate_query(self, attr, additional_expression):
@@ -79,31 +102,45 @@ class ObjectAttributeRefresher(object):
                 (attr, additional_expression))
 
     def refresh_many_to_one(self, obj, attr_name, attr):
-        for l, r in attr.property.local_remote_pairs:
-            l_value = getattr(obj, l.name, None)
-            r_value = getattr(obj, attr_name, None)
-            if l_value is not None:
-                if r_value is None:
+        """
+        Refresh a many-to-one relationship of a python object.
+        :param obj: a python object
+        :param attr_name: name of the relationship field
+        :param attr: relationship object
+        :return: a boolean which is True if the refresh worked
+        """
+        for left, right in attr.property.local_remote_pairs:
+            left_value = getattr(obj, left.name, None)
+            right_value = getattr(obj, attr_name, None)
+            if left_value is not None:
+                if right_value is None:
                     (entity_class,
-                     query) = self._generate_query(attr, r.__eq__(l_value))
+                     query) = self._generate_query(attr, right.__eq__(left_value))
                     relationship_field = LazyRelationship(query, entity_class,
                                                           many=False)
                     setattr(obj, attr_name, relationship_field)
-            elif r_value is not None:
-                r_value_field_value = getattr(r_value, r.name, None)
-                if r_value_field_value:
-                    new_l_value = getattr(obj, l.name, r_value_field_value)
-                    setattr(obj, l.name, new_l_value)
+            elif right_value is not None:
+                right_value_field_value = getattr(right_value, right.name, None)
+                if right_value_field_value:
+                    new_left_value = getattr(obj, left.name, right_value_field_value)
+                    setattr(obj, left.name, new_left_value)
         return True
 
     def refresh_many_to_many(self, obj, attr_name, attr):
-        for l, r in attr.property.local_remote_pairs:
-            l_value = getattr(obj, attr_name, None)
-            if l_value:
-                for e in l_value:
-                    e_value = getattr(e, r.name, None)
-                    if e_value is None or e_value != l_value:
-                        setattr(e, r.name, e_value)
+        """
+        Refresh a many-to-many relationship of a python object.
+        :param obj: a python object
+        :param attr_name: name of the relationship field
+        :param attr: relationship object
+        :return: a boolean which is True if the refresh worked
+        """
+        for left, right in attr.property.local_remote_pairs:
+            left_value = getattr(obj, attr_name, None)
+            if left_value:
+                for element in left_value:
+                    element_value = getattr(element, right.name, None)
+                    if element_value is None or element_value != left_value:
+                        setattr(element, right.name, element_value)
         return True
 
     def refresh(self, obj):
