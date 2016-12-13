@@ -138,15 +138,15 @@ class TestSessions(unittest.TestCase):
         init_mock_objects(sqlalchemy_models)
         init_mock_objects(rome_models)
 
-    def test_sessions_1(self):
-        result = test_sessions_1(rome_models)
-        self.assertNotEqual(result["allocated_address_count"], NB_ADDRESS)
-        self.assertNotEqual(result["unallocated_address_count"], 0)
+    # def test_sessions_1(self):
+    #     result = test_sessions_1(rome_models)
+    #     self.assertNotEqual(result["allocated_address_count"], NB_ADDRESS)
+    #     self.assertNotEqual(result["unallocated_address_count"], 0)
 
     def test_sessions_2(self):
         for i in range(0, NB_RUN):
             self.setUp()
-            logging.info("running test_sessions_2 %s/%s" % (i, NB_RUN))
+            # logging.info("running test_sessions_2 %s/%s" % (i, NB_RUN))
             result = test_sessions_2(rome_models)
             self.assertEqual(result["allocated_address_count"], NB_ADDRESS)
             self.assertEqual(result["unallocated_address_count"], 0)

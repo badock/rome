@@ -37,17 +37,20 @@ driver = None
 def build_driver():
     from rome.driver.redis.driver import RedisClusterDriver, RedisDriver
     from rome.driver.etcd.driver import EtcdDriver
+    from rome.driver.memory.driver import MemoryDriver
 
     config = get_config()
     backend = config.backend()
-    # backend = "etcd"
 
     if backend == "redis":
         if config.redis_cluster_enabled():
             return RedisClusterDriver()
         else:
             return RedisDriver()
-    return EtcdDriver()
+    if backend == "etcd":
+        return EtcdDriver()
+
+    return MemoryDriver()
 
 
 def get_driver():

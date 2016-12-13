@@ -91,8 +91,6 @@ def construct_rows(query_tree, entity_class_registry, request_uuid=None):
                                 hints)
         reduced_hints = map(lambda x: (x.attribute, x.value), selected_hints)
         objects = get_objects(table_name,
-                              request_uuid=request_uuid,
-                              skip_loading=False,
                               hints=reduced_hints)
         list_results[table_name] = objects
     part3_start_time = current_milli_time()
