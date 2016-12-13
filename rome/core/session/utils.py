@@ -144,7 +144,11 @@ class ObjectAttributeRefresher(object):
         return True
 
     def refresh(self, obj):
-        result = {}
+        """
+        Refresh relationships objects according to foreign keys (and vice versa).
+        :param obj: a python object
+        :return: a boolean which is True if the object has been successfully refreshed
+        """
         for attr_name, attr in get_class_manager(obj).local_attrs.iteritems():
             if type(attr.property) is RelationshipProperty:
                 if attr.property.direction is ONETOMANY:
@@ -160,12 +164,17 @@ class ObjectAttributeRefresher(object):
                     raise Exception(
                         "Could not understand how to refresh the property '%s' of %s"
                         % (attr, obj))
-        return result
+        return True
 
 
 class ObjectExtractor(object):
 
     def extract(self, obj):
+        """
+        Extract the dictionary representation of a SQLAlchemy entity object.
+        :param obj: an entity object
+        :return: a python dictionary
+        """
         json_encoder = Encoder()
         result = {}
         for attr_name, attr in get_class_manager(obj).local_attrs.iteritems():
@@ -185,13 +194,18 @@ class ObjectSaver(object):
         self.session = session
 
     def save(self, obj):
+        """
+        Save in database an SQLAlchemy entity object.
+        :param obj: an entity object
+        :return: a boolean which is True if the object has been successfully saved in database
+        """
         extractor = ObjectExtractor()
         attribute_refresher = ObjectAttributeRefresher()
         # json_encoder = Encoder()
         attribute_refresher.refresh(obj)
         obj_as_dict = extractor.extract(obj)
 
-        tablename = obj.__table__.name
+        tablename = str(obj.__table__.name)
 
         if not "id" in obj_as_dict or obj_as_dict["id"] is None:
             next_id = database_driver.get_driver().next_key(tablename)
@@ -204,6 +218,11 @@ class ObjectSaver(object):
         return True
 
     def delete(self, obj):
+        """
+        Delete from database an SQLAlchemy entity object.
+        :param obj: an entity object
+        :return: a boolean which is True if the object has been successfully deleted from database
+        """
         extractor = ObjectExtractor()
         attribute_refresher = ObjectAttributeRefresher()
         # json_encoder = Encoder()
