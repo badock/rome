@@ -41,6 +41,7 @@ def build_driver():
 
     config = get_config()
     backend = config.backend()
+    backend = "memory"
 
     if backend == "redis":
         if config.redis_cluster_enabled():
