@@ -14,9 +14,6 @@ import rediscluster
 from rome.conf.configuration import get_config
 from rome.core.utils import merge_dicts as merge_dicts
 
-# Python 3 compatibility
-string_type = getattr(__builtins__, 'basestring', str)
-
 
 class ClusterLock(object):
 
@@ -39,6 +36,13 @@ class ClusterLock(object):
                                                   db=0)
 
     def lock(self, name, ttl):
+        """
+        Acquire a lock.
+        :param name: a lock name
+        :param ttl: time to live
+        :return: a boolean value that is True if the lock has been aquired and False in the other
+        case.
+        """
         self.unlock(name, only_expired=True)
         retry = 0
         request_uuid = ("%s_%s" % (self.uuid, name)).__hash__()
@@ -71,6 +75,14 @@ class ClusterLock(object):
         return False
 
     def unlock(self, name, only_expired=False):
+        """
+        Release a lock.
+        :param name: a lock name
+        :param only_expired: a boolean. When it is True, the lock is released only if the lock has
+        expired.
+        :return: a boolean which is True if the lock has been correctly released, and which is False
+        in the other case
+        """
         request_uuid = ("%s_%s" % (self.uuid, name)).__hash__()
         now = time.time()
         keys = map(lambda x: "%s_%s" % (x, name), self.lock_labels)
@@ -91,5 +103,4 @@ class ClusterLock(object):
                                   (expiration_date - now))
         for key in keys_to_delete:
             self.redis_client.hdel("lock", key)
-        # self.redis_client.delete("lock", keys_to_delete)
         return True

@@ -9,27 +9,15 @@ class SecondaryIndexDecorator(object):
         self.attribute = attribute
 
     def __call__(self, model_class):
-        # <old implementation>
-        current_secondary_indexes = getattr(model_class,
-                                            "_secondary_indexes", [])
-        setattr(model_class, "_secondary_indexes",
-                current_secondary_indexes + [self.attribute])
-        # </old implementation>
-
-        # <new implementation>
-        # tablename = model_class.__tablename__
-        # current_secondary_indexes = SECONDARY_INDEXES[tablename] if tablename in SECONDARY_INDEXES else []
-        # current_secondary_indexes += [self.attribute]
-        # SECONDARY_INDEXES[tablename] = current_secondary_indexes
-        # current_secondary_indexes = getattr(model_class, "_secondary_indexes", [])
-        # setattr(model_class, "_secondary_indexes", current_secondary_indexes + [self.attribute])
-        # </new implementation>
+        current_secondary_indexes = getattr(model_class, "_secondary_indexes", [])
+        setattr(model_class, "_secondary_indexes", current_secondary_indexes + [self.attribute])
         return model_class
 
 
 def secondary_index_decorator(attribute):
+    """
+    Return an instance of 'SecondaryIndexDecorator'.
+    :param attribute: an attribute name
+    :return: an instance of 'SecondaryIndexDecorator'
+    """
     return SecondaryIndexDecorator(attribute)
-
-
-if __name__ == '__main__':
-    pass

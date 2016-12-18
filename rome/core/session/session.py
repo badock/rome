@@ -54,7 +54,7 @@ class Session(object):
         self.session_objects_delete = []
         self.session_timeout = current_milli_time() + Session.max_duration
         self.check_version_numbers = check_version_numbers
-        self.dlm = get_lock_driver()
+        self.lock_manager = get_lock_driver()
         self.acquired_locks = []
         self.already_saved = []
 
@@ -170,7 +170,7 @@ class Session(object):
         for obj in self.session_objects_add + self.session_objects_delete:
             if obj.id is not None:
                 lock_name = "session_lock_%s_%s" % (obj.__tablename__, obj.id)
-                if self.dlm.lock(lock_name, 100):
+                if self.lock_manager.lock(lock_name, 100):
                     locks += [lock_name]
                 else:
                     success = False
@@ -189,7 +189,7 @@ class Session(object):
             logging.error("sessions %s encountered a conflict, aborting commit (%s)" %
                           (self.session_id, map(lambda x: x.id, self.session_objects_add)))
             for lock in locks:
-                self.dlm.unlock(lock)
+                self.lock_manager.unlock(lock)
             raise DBDeadlock()
         else:
             logging.info("session %s has been committed (%s)" %
@@ -209,7 +209,7 @@ class Session(object):
             object_saver.delete(obj)
         logging.info("session %s committed (%s)" % (self.session_id, map(lambda x: x.id, self.session_objects_add)))
         for lock in self.acquired_locks:
-            self.dlm.unlock(lock)
+            self.lock_manager.unlock(lock)
             self.acquired_locks.remove(lock)
         self.session_objects_add = []
         self.session_objects_delete = []

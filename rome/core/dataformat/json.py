@@ -10,14 +10,14 @@ import uuid
 
 import netaddr
 import pytz
-from rome.utils.limited_size_dictionnary import LimitedSizeDictionnary
+from rome.utils.dictionary_with_limited_size import DictionaryWithLimitedSize
 
 from rome.core.utils import DATE_FORMAT
 
-CACHES = LimitedSizeDictionnary(size_limit=20)
-SIMPLE_CACHES = LimitedSizeDictionnary(size_limit=20)
-COMPLEX_CACHES = LimitedSizeDictionnary(size_limit=20)
-TARGET_CACHES = LimitedSizeDictionnary(size_limit=20)
+CACHES = DictionaryWithLimitedSize(size_limit=20)
+SIMPLE_CACHES = DictionaryWithLimitedSize(size_limit=20)
+COMPLEX_CACHES = DictionaryWithLimitedSize(size_limit=20)
+TARGET_CACHES = DictionaryWithLimitedSize(size_limit=20)
 
 
 def convert_to_camelcase(word):

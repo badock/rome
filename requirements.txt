@@ -10,5 +10,6 @@ redlock-py>=1.0.5,<2.0
 redis-py-cluster>=0.2.0,<1.0
 numexpr
 gevent
+etcd
 ujson
 pytest
