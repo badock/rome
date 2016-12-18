@@ -2,6 +2,8 @@
 ROME (Relational Object Mapping Extension)
 ==========================================
 
+[![Travis-ci Build Status](https://api.travis-ci.org/badock/rome.png?branch=master)](https://travis-ci.org/badock/rome)
+
 Introduction
 ------------
 
