@@ -82,4 +82,5 @@ def init_objects():
 
 
 def get_query(*args, **kwargs):
-    return ses.query(*args, **kwargs)
+    session = Session()
+    return session.query(*args, **kwargs)
