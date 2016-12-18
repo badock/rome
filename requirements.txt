@@ -8,7 +8,7 @@ redis==2.10.5
 redis-py-cluster>=0.2.0
 redlock-py>=1.0.5,<2.0
 numexpr
-gevent
 etcd
 ujson
+unittest2
 pytest
