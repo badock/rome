@@ -2,7 +2,7 @@ import logging
 import uuid
 
 from rome.core.utils import current_milli_time
-from rome.driver.redis.lock import ClusterLock
+from rome.driver.lock_driver import get_driver as get_lock_driver
 
 from rome.core.session.utils import ObjectSaver
 from rome.driver.database_driver import get_driver
@@ -54,7 +54,7 @@ class Session(object):
         self.session_objects_delete = []
         self.session_timeout = current_milli_time() + Session.max_duration
         self.check_version_numbers = check_version_numbers
-        self.dlm = ClusterLock()
+        self.dlm = get_lock_driver()
         self.acquired_locks = []
         self.already_saved = []
 
