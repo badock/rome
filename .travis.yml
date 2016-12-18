@@ -12,6 +12,6 @@ before_install:
  - sudo apt-get update
  - pip install -r requirements.txt
 install:
-    python setup.py install
+    python -m unittest discover rome.tests "*.py" -v
 script:
  - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then python -m unittest discover; fi
