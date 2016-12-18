@@ -1,8 +1,3 @@
-# This code is inspired by the code found at, in order to provide
-# an implementation with the new cluster architecture provided by
-# redis 3:
-#   https://github.com/SPSCommerce/redlock-py
-
 import random
 import threading
 import time
