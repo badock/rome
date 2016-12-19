@@ -5,12 +5,9 @@
 
 ## Introduction
 
-ROME (Relational Object Mapping Extension) is an extension for NoQSL
-databases, that made them compliant to relational algebra. In short
-terms, it enables to use NoSQL databases with an ORM like software, that
-is respecting the same interfaces as SQLAlchemy. This document gives
-instructions to install/configure/run ROME, and a technical
-documentation about how it works.
+ROME (Relational Object Mapping Extension) is an ORM for key/value stores.
+In short, it enables to use the SQLAlchemy API with key/value stores.
+ROME enables the support of operation such as transactions and joining to key/value stores.
 
 ## Installation
 
