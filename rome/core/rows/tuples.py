@@ -149,8 +149,8 @@ def sql_panda_building_tuples(query_tree,
         adapted_criterion = re.sub("IN", " in ", adapted_criterion)
         adapted_panda_criterion = adapted_criterion
         adapted_nonpanda_criterion = adapted_criterion
-        patterns = ["\"%s\"." % (label), "%s." % (label)]
         for label in labels:
+            patterns = ["\"+%s\"+." % (label)]
             for x in patterns:
                 adapted_panda_criterion = re.sub(x, "%s__" % (label), adapted_panda_criterion)
                 adapted_nonpanda_criterion = re.sub(x, "%s." % (label), adapted_nonpanda_criterion)
