@@ -27,7 +27,7 @@ class MemoryDriver(DatabaseDriverInterface):
         if tablename not in self.database["sec_indexes"]:
             self.database["sec_indexes"][tablename] = {}
         if tablename not in self.database["next_keys"]:
-            self.database["sec_indexes"][tablename] = 1
+            self.database["next_keys"][tablename] = 1
         if tablename not in self.database["version_numbers"]:
             self.database["version_numbers"][tablename] = 0
         if tablename not in self.database["object_version_numbers"]:
@@ -49,9 +49,12 @@ class MemoryDriver(DatabaseDriverInterface):
         :param tablename: a table name
         :param key: a key
         """
-        if tablename not in self.database["keys"]:
+        if tablename in self.database["keys"]:
             filtered_keys = filter(lambda k: k != key, self.database["keys"][tablename])
             self.database["keys"][tablename] = filtered_keys
+        if tablename in self.database["tables"]:
+            if key in self.database["tables"][tablename]:
+                self.database["tables"][tablename].pop(key)
 
     def next_key(self, tablename):
         """
@@ -61,8 +64,8 @@ class MemoryDriver(DatabaseDriverInterface):
         """
         if tablename not in self.database["next_keys"]:
             self._init_table(tablename)
-        next_key = self.database["sec_indexes"][tablename]
-        self.database["sec_indexes"][tablename] += 1
+        next_key = self.database["next_keys"][tablename]
+        self.database["next_keys"][tablename] += 1
         return next_key
 
     def keys(self, tablename):
@@ -167,8 +170,8 @@ class MemoryDriver(DatabaseDriverInterface):
         """
         if tablename not in self.database["object_version_numbers"]:
             self._init_table(tablename)
-        if key in self.database["tables"]:
-            return self.database["tables"][key]
+        if key in self.database["tables"][tablename]:
+            return self.database["tables"][tablename][key]
         else:
             return None
 

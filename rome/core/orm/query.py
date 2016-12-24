@@ -26,7 +26,16 @@ class Query(object):
                 self.sa_query = temporary_session.query(*args, **kwargs)
             else:
                 from sqlalchemy.orm import Query as SqlAlchemyQuery
-                self.sa_query = SqlAlchemyQuery(*args, **kwargs)
+                from rome.core.session.session import Session as RomeSession
+                # self.sa_query = SqlAlchemyQuery(*args, **kwargs)
+                entities = filter(lambda arg: type(arg) is not RomeSession and arg is not None, args)
+                session_candidates = filter(lambda arg: type(arg) is RomeSession, args)
+                if len(session_candidates) > 0:
+                    session_candidate = session_candidates[0]
+                else:
+                    session_candidate = None
+                self.session = session_candidate
+                self.sa_query = SqlAlchemyQuery(entities, session=session_candidate)
 
     def set_sa_query(self, query):
         """
@@ -47,12 +56,14 @@ class Query(object):
                     if isinstance(call_result, SqlAlchemyQuery):
                         new_query = Query(*[], **{"__query": call_result})
                         new_query.set_sa_query(call_result)
+                        new_query.session = self.session
                         return new_query
                     return call_result
 
                 return anonymous_func
             return result
-        return super(object, self).__getattr__(item)
+        # return super(object, self).__getattr__(item)
+        return getattr(super(object, self), item)
 
     def _extract_entity_class_registry(self):
         """
@@ -87,15 +98,17 @@ class Query(object):
 
         sql_query = get_literal_query(self.sa_query)
         parser = QueryParser()
-
         query_tree = parser.parse(sql_query)
+
         entity_class_registry = self._extract_entity_class_registry()
 
         rows = construct_rows(query_tree, entity_class_registry)
 
         def row_function(row, column_descriptions, decoder):
+            from rome.core.session.utils import ObjectAttributeRefresher
             final_row = []
             one_is_an_object = False
+            object_attribute_refresher = ObjectAttributeRefresher()
             for column_description in column_descriptions:
                 if type(column_description["type"]) in [Integer, String]:
                     row_key = column_description["entity"].__table__.name.capitalize(
@@ -127,8 +140,11 @@ class Query(object):
                         value = decoder.decode(row[row_key].get(attribute_name,
                                                                 None))
                         setattr(new_object, attribute_name, value)
+
                     if "___version_number" in row[row_key]:
                         setattr(new_object, "___version_number", row[row_key]["___version_number"])
+
+                    object_attribute_refresher.refresh(new_object)
                     final_row += [new_object]
                 else:
                     logging.error("Unsupported type: '%s'" %
@@ -146,6 +162,12 @@ class Query(object):
             # Flatten the list
             final_rows = [item for sublist in final_rows for item in sublist]
 
+        # Add watcher on objects
+        if self.session is not None:
+            for obj in final_rows:
+                if hasattr(obj, "id"):
+                    self.session.watch(obj)
+
         return final_rows
 
     def first(self):
@@ -155,8 +177,13 @@ class Query(object):
         be found. None is returned if no value can be found.
         """
         objects = self.all()
+
         if len(objects) > 0:
-            return objects[0]
+            value = objects[0]
+            if self.session is not None:
+                if hasattr(value, "id"):
+                    self.session.watch(value)
+            return value
         else:
             return None
 
@@ -167,3 +194,18 @@ class Query(object):
         """
         objects = self.all()
         return len(objects)
+
+    def delete(self):
+        from rome.core.session.session import Session
+        temporary_session = Session()
+        objects = self.all()
+        for obj in objects:
+            temporary_session.delete(obj)
+        temporary_session.flush()
+        return len(objects)
+
+    def soft_delete(self, synchronize_session='evaluate'):
+        return self.delete()
+
+    def __iter__(self):
+        return iter(self.all())

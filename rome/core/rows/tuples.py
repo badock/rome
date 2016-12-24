@@ -73,17 +73,17 @@ def extract_joining_pairs(criterion):
     :return: a list where each item is a list that contains 2 attribute's names
     """
     word_pattern = "[_a-zA-Z0-9]+"
-    joining_criterion_pattern = "\"%s\".%s[ ]*=[ ]*\"%s\".%s" % (
-        word_pattern, word_pattern, word_pattern, word_pattern
-    )
-    matches = re.search(joining_criterion_pattern, criterion)
-    if matches is not None:
-        joining_pair = criterion.split("=")
-        joining_pair = map(lambda x: x.strip().replace("\"", ""), joining_pair)
-        joining_pair = sorted(joining_pair)
-        return [joining_pair]
-    else:
-        return []
+    for x in ["\"%s\".%s[ ]*=[ ]*\"%s\".%s", "%s.%s[ ]*=[ ]*%s.%s"]:
+        joining_criterion_pattern = x % (
+            word_pattern, word_pattern, word_pattern, word_pattern
+        )
+        matches = re.search(joining_criterion_pattern, criterion)
+        if matches is not None:
+            joining_pair = criterion.split("=")
+            joining_pair = map(lambda x: x.strip().replace("\"", ""), joining_pair)
+            joining_pair = sorted(joining_pair)
+            return [joining_pair]
+    return []
 
 
 def date_value_to_int(local_value):
@@ -146,14 +146,14 @@ def sql_panda_building_tuples(query_tree,
         adapted_criterion = re.sub(" = ", " == ", adapted_criterion)
         adapted_criterion = re.sub("AND", " and ", adapted_criterion)
         adapted_criterion = re.sub("OR", " or ", adapted_criterion)
+        adapted_criterion = re.sub("IN", " in ", adapted_criterion)
         adapted_panda_criterion = adapted_criterion
         adapted_nonpanda_criterion = adapted_criterion
+        patterns = ["\"%s\"." % (label), "%s." % (label)]
         for label in labels:
-            adapted_panda_criterion = re.sub("\"%s\"." % (label), "%s__" %
-                                             (label), adapted_panda_criterion)
-            adapted_nonpanda_criterion = re.sub("\"%s\"." % (label), "%s." %
-                                                (label),
-                                                adapted_nonpanda_criterion)
+            for x in patterns:
+                adapted_panda_criterion = re.sub(x, "%s__" % (label), adapted_panda_criterion)
+                adapted_nonpanda_criterion = re.sub(x, "%s." % (label), adapted_nonpanda_criterion)
         adapted_pandas_criteria += [adapted_panda_criterion]
         adapted_non_pandas_criteria += [adapted_nonpanda_criterion]
 
@@ -287,6 +287,9 @@ def sql_panda_building_tuples(query_tree,
     new_where_clause = new_where_clause.replace("1==1 and", "")
     new_where_clause = new_where_clause.replace("is None", "== 0")
     new_where_clause = new_where_clause.replace("is not None", "!= 0")
+    new_where_clause = new_where_clause.replace("IS NULL", "== 0")
+    new_where_clause = new_where_clause.replace("IS NOT NULL", "!= 0")
+    new_where_clause = new_where_clause.replace("NOT", " not ")
     new_where_clause = new_where_clause.strip()
 
     # <Quick fix for dates>
@@ -308,8 +311,7 @@ def sql_panda_building_tuples(query_tree,
 
     # Filter data according to where clause.
     result = result.fillna(value=0)
-    filtered_result = result.query(
-        new_where_clause) if new_where_clause != "1==1" else result
+    filtered_result = result.query(new_where_clause) if new_where_clause != "1==1" else result
 
     # Filter duplicate tuples (ie "select A.x from A join B")
     selected_attributes_corrected = map(

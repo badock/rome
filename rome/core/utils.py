@@ -7,6 +7,8 @@ discovery database backend.
 
 import time
 import rome.driver.database_driver as database_driver
+from sqlalchemy.orm.collections import CollectionAdapter
+from sqlalchemy.orm.state import InstanceState
 
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
@@ -54,32 +56,63 @@ def get_objects(tablename,
     return database_driver.get_driver().getall(tablename, hints=hints)
 
 
+class CollectionAdapterWithoutEvents(CollectionAdapter):
+
+    def append_with_event(self, item, initiator=None):
+        pass
+
+
+class InstanceStateWithoutBackref(InstanceState):
+
+    def _modified_event(
+            self, dict_, attr, previous, collection=False, force=False):
+        pass
+
+
 class LazyRelationship(object):
 
-    def __init__(self, query, _class, many=True, request_uuid=None):
+    def __init__(self, query, _class, many=True, request_uuid=None, info=None):
         self.query = query
         self.many = many
         self.data = None
         self.is_loaded = False
         self._class = _class
-        if self.many:
-            self.data = []
-        else:
-            self.data = self._class()
+        self.info = info
 
     def load(self):
         """
         Load from database data that is corresponding to the lazy relationship
         """
-        if self.data is None:
+        if self.is_loaded is False:
+            from rome.core.session.utils import ObjectAttributeRefresher
+            object_attribute_refresher = ObjectAttributeRefresher()
             if self.many:
                 self.data = self.query.all()
+                for obj in self.data:
+                    if obj is not None:
+                        object_attribute_refresher.refresh(obj)
             else:
-                for (key, value) in self.query.first():
-                    setattr(self.data, key, value)
+                self.data = self.query.first()
+                if self.data is not None:
+                    object_attribute_refresher.refresh(self.data)
+            self.is_loaded = True
 
     def __getattr__(self, item):
-        if item not in ["data", "many", "query", "_class", "is_loaded"]:
+        if item in ["_sa_adapter"]:
+            from sqlalchemy.orm.collections import InstrumentedList
+            from sqlalchemy.orm.attributes import CollectionAttributeImpl
+            from sqlalchemy.orm.state import InstanceState
+
+            attr = CollectionAttributeImpl(self._class, "id", None, None)
+            state = InstanceState(self._class(), None)
+            instrumented_list = InstrumentedList()
+
+            return CollectionAdapterWithoutEvents(attr, state, instrumented_list)
+        if item in ["_sa_instance_state"]:
+            fake_instance = self._class()
+            class_manager = getattr(fake_instance, "_sa_class_manager")
+            return InstanceStateWithoutBackref(fake_instance, class_manager)
+        if item not in ["data", "many", "query", "_class", "is_loaded", "info"]:
             self.load()
         if item == "iteritems":
             if self.is_relationship_list:
@@ -89,9 +122,21 @@ class LazyRelationship(object):
         return getattr(self.data, item, None)
 
     def __setattr__(self, name, value):
-        if name in ["data", "many", "query", "_class", "is_loaded"]:
+        if name in ["data", "many", "query", "_class", "is_loaded", "__emulates__", "info"]:
             self.__dict__[name] = value
         else:
             self.load()
             setattr(self.data, name, value)
             return self
+
+    def __getitem__(self, item):
+        self.load()
+        return self.data.__getitem__(item)
+
+    def __eq__(self, other):
+        """Override the default Equals behavior"""
+        if isinstance(other, self.__class__):
+            for key in ["info", "many", "_class"]:
+                if str(getattr(self, key)) != str(getattr(other, key)):
+                    return False
+        return True

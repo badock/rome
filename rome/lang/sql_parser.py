@@ -3,6 +3,7 @@ import sqlparse
 import uuid
 import logging
 from sqlparse.sql import Token, IdentifierList, Identifier, Where, Comparison, Parenthesis, Function
+import re
 
 SELECT_PART = 1
 FROM_PART = 2
@@ -19,6 +20,18 @@ class QueryParserResult(object):
         self.variables = {}
         self.aliases = {}
         self.function_calls = {}
+
+
+def correct_invalid_property(term):
+    word_pattern = "[_a-zA-Z0-9]+"
+    for x in ["\"%s\".\"%s\"", "%s.\"%s\""]:
+        property_pattern = x % (word_pattern, word_pattern)
+        match = re.search(property_pattern, term)
+        if match is not None:
+            table_name = match.group().split(".")[0].replace("\"", "")
+            property_name = match.group().split(".")[1].replace("\"", "")
+            term = term.replace(match.group(), "%s.%s" % (table_name, property_name))
+    return term
 
 
 class QueryParser(object):
@@ -42,15 +55,13 @@ class QueryParser(object):
         query.function_calls[attribute_index] = function_name
         return query
 
-    def parse_select_identifier(self, identifier_candidate, query):
-        if (type(identifier_candidate) is Identifier and
-            identifier_candidate.value.strip() != ""):
-            if (len(identifier_candidate.tokens) > 0 and
-                type(identifier_candidate.tokens[0]) is Function):
+    def parse_select_identifier(self, id_candidate, query):
+        if type(id_candidate) is Identifier and id_candidate.value.strip() != "":
+            if len(id_candidate.tokens) > 0 and type(id_candidate.tokens[0]) is Function:
                 self.parse_select_function_identifier(
-                    identifier_candidate.tokens[0], query)
+                    id_candidate.tokens[0], query)
             else:
-                query.attributes += [identifier_candidate.value]
+                query.attributes += [id_candidate.value]
         return query
 
     def parse_from_identifier_list(self, identifier_candidates, query):
@@ -121,6 +132,7 @@ class QueryParser(object):
             if new_term is not None:
                 new_terms += [new_term]
         new_terms_as_string = "".join(new_terms).strip()
+        new_terms_as_string = correct_invalid_property(new_terms_as_string)
         if not joining_clause:
             query.where_clauses += [new_terms_as_string]
         else:

@@ -50,6 +50,7 @@ class Session(object):
 
     def __init__(self, check_version_numbers=True):
         self.session_id = uuid.uuid1()
+        self.session_objects_watch = []
         self.session_objects_add = []
         self.session_objects_delete = []
         self.session_timeout = current_milli_time() + Session.max_duration
@@ -57,6 +58,12 @@ class Session(object):
         self.lock_manager = get_lock_driver()
         self.acquired_locks = []
         self.already_saved = []
+
+    def watch(self, obj):
+        object_hash = hash(str(obj.__dict__))
+        existing_hashes = map(lambda x: x["hash"], self.session_objects_watch)
+        if object_hash not in existing_hashes:
+            self.session_objects_watch += [{"object": obj, "hash": object_hash}]
 
     def add(self, *objs):
         """
@@ -136,6 +143,11 @@ class Session(object):
         :param args: list of arguments
         :param kwargs: key/value arguments
         """
+        logging.info("processing watched objects %s" % (self.session_id))
+        for watch in self.session_objects_watch:
+            if hash(str(watch["object"].__dict__)) != watch["hash"]:
+                self.add(watch["object"])
+
         logging.info("flushing session %s" % (self.session_id))
         if self.can_commit_request():
             logging.info("committing session %s" % (self.session_id))
@@ -213,3 +225,20 @@ class Session(object):
             self.acquired_locks.remove(lock)
         self.session_objects_add = []
         self.session_objects_delete = []
+
+        # Update watch values
+        for watch in self.session_objects_watch:
+            watch["hash"] = hash(str(watch["object"].__dict__))
+
+    def execute(self, clause, params=None, mapper=None, bind=None, **kw):
+        from sqlalchemy.sql.dml import Insert
+        from rome.driver.database_driver import get_driver
+        if type(clause) is Insert:
+            database_driver = get_driver()
+            for value in params:
+                new_key = database_driver.next_key(clause.table.name)
+                value["id"] = new_key
+                database_driver.put(clause.table.name, new_key, value)
+
+    def expire(self, instance, attribute_names=None):
+        pass
