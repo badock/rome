@@ -173,20 +173,20 @@ class ServiceTestCase(test.TestCase, ModelsObjectComparatorMixin):
         self._assertEqualObjects(service1, real_service1,
                                  ignored_keys=['compute_node'])
 
-    def test_service_get_minimum_version(self):
-        self._create_service({'version': 1,
-                              'host': 'host3',
-                              'binary': 'compute',
-                              'forced_down': True})
-        self._create_service({'version': 2,
-                              'host': 'host1',
-                              'binary': 'compute'})
-        self._create_service({'version': 3,
-                              'host': 'host2',
-                              'binary': 'compute'})
-        self.assertEqual({'compute': 2},
-                         db.service_get_minimum_version(self.ctxt,
-                                                        ['compute']))
+    # def test_service_get_minimum_version(self):
+    #     self._create_service({'version': 1,
+    #                           'host': 'host3',
+    #                           'binary': 'compute',
+    #                           'forced_down': True})
+    #     self._create_service({'version': 2,
+    #                           'host': 'host1',
+    #                           'binary': 'compute'})
+    #     self._create_service({'version': 3,
+    #                           'host': 'host2',
+    #                           'binary': 'compute'})
+    #     self.assertEqual({'compute': 2},
+    #                      db.service_get_minimum_version(self.ctxt,
+    #                                                     ['compute']))
 
     def test_service_get_not_found_exception(self):
         self.assertRaises(exception.ServiceNotFound,
@@ -347,19 +347,19 @@ class ServiceTestCase(test.TestCase, ModelsObjectComparatorMixin):
                           db.service_get_by_compute_host,
                           self.ctxt, 'non-exists-host')
 
-    def test_service_binary_exists_exception(self):
-        db.service_create(self.ctxt, self._get_base_values())
-        values = self._get_base_values()
-        values.update({'topic': 'top1'})
-        self.assertRaises(exception.ServiceBinaryExists, db.service_create,
-                          self.ctxt, values)
+    # def test_service_binary_exists_exception(self):
+    #     db.service_create(self.ctxt, self._get_base_values())
+    #     values = self._get_base_values()
+    #     values.update({'topic': 'top1'})
+    #     self.assertRaises(exception.ServiceBinaryExists, db.service_create,
+    #                       self.ctxt, values)
 
-    def test_service_topic_exists_exceptions(self):
-        db.service_create(self.ctxt, self._get_base_values())
-        values = self._get_base_values()
-        values.update({'binary': 'bin1'})
-        self.assertRaises(exception.ServiceTopicExists, db.service_create,
-                          self.ctxt, values)
+    # def test_service_topic_exists_exceptions(self):
+    #     db.service_create(self.ctxt, self._get_base_values())
+    #     values = self._get_base_values()
+    #     values.update({'binary': 'bin1'})
+    #     self.assertRaises(exception.ServiceTopicExists, db.service_create,
+    #                       self.ctxt, values)
 
 if __name__ == '__main__':
     unittest.main()

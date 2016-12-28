@@ -87,9 +87,11 @@ class Query(object):
                     return entity_class_registry
         return None
 
-    def all(self):
+    def matching_objects(self, filter_deleted):
         """
         Execute the query, and return its result as rows
+        :param filter_deleted: a boolean. When filter_deleted is True, matching objects that have
+        been soft_deleted are filtered
         :return: a list of tuples (can be objects/values or list of objects values)
         """
         from rome.core.orm.utils import get_literal_query
@@ -102,7 +104,7 @@ class Query(object):
 
         entity_class_registry = self._extract_entity_class_registry()
 
-        rows = construct_rows(query_tree, entity_class_registry)
+        rows = construct_rows(query_tree, entity_class_registry, filter_deleted=filter_deleted)
 
         def row_function(row, column_descriptions, decoder):
             from rome.core.session.utils import ObjectAttributeRefresher
@@ -170,13 +172,25 @@ class Query(object):
 
         return final_rows
 
-    def first(self):
+    def all(self, filter_deleted=True):
+        """
+        Execute the query, and return its result as rows
+        :param filter_deleted: a boolean. When filter_deleted is True, matching objects that have
+        been soft_deleted are filtered
+        :return: a list of tuples (can be objects/values or list of objects values)
+        """
+        objects = self.matching_objects(filter_deleted=filter_deleted)
+        return objects
+
+    def first(self, filter_deleted=True):
         """
         Executes the query and returns the first matching row.
+        :param filter_deleted: a boolean. When filter_deleted is True, matching objects that have
+        been soft_deleted are filtered
         :return: a single tuple (can be objects/values or list of objects values) if a value could
         be found. None is returned if no value can be found.
         """
-        objects = self.all()
+        objects = self.matching_objects(filter_deleted=filter_deleted)
 
         if len(objects) > 0:
             value = objects[0]
@@ -198,14 +212,30 @@ class Query(object):
     def delete(self):
         from rome.core.session.session import Session
         temporary_session = Session()
-        objects = self.all()
+        objects = self.matching_objects(filter_deleted=False)
         for obj in objects:
             temporary_session.delete(obj)
         temporary_session.flush()
         return len(objects)
 
     def soft_delete(self, synchronize_session='evaluate'):
-        return self.delete()
+        # return self.delete()
+        import datetime
+        from rome.core.session.session import Session
+        from rome.core.session.utils import ObjectSaver
+        # session = Session()
+        session = self.session
+        objects = self.all(filter_deleted=False)
+        for obj in objects:
+            """Mark this object as deleted."""
+            obj["deleted"] = obj.id
+            obj["deleted_at"] = datetime.datetime.utcnow()
+            session.add(obj)
+        session.flush()
+        # object_saver = ObjectSaver(session=Session())
+        # for obj in objects:
+        #     object_saver.delete(obj, delete_object=False)
+        return len(objects)
 
     def __iter__(self):
         return iter(self.all())
