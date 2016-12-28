@@ -14,5 +14,5 @@ before_install:
 install:
     python setup.py install
 script:
- - pip install -r test-requirements.txt
+ - git clone https://github.com/openstack/nova.git; pushd nova; python setup.py install; popd;
  - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then python -m unittest discover rome.tests "*.py" -v; fi
