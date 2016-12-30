@@ -8,6 +8,7 @@ import re
 SELECT_PART = 1
 FROM_PART = 2
 WHERE_PART = 3
+ORDER_PART = 4
 
 
 class QueryParserResult(object):
@@ -145,13 +146,14 @@ class QueryParser(object):
             "SELECT": SELECT_PART,
             "FROM": FROM_PART,
             "WHERE": WHERE_PART,
+            "ORDER": ORDER_PART,
         }
         expected_part = -1
         for term in terms:
 
             # Try to detect if the term is part of the SELECT, FROM or WHERE
             if type(term) is Token:
-                if term.value.upper() in ["SELECT", "FROM", "WHERE]"]:
+                if term.value.upper() in ["SELECT", "FROM", "WHERE", "ORDER"]:
                     expected_part = parts_identifier[term.value.upper()]
             elif type(term) is Where:
                 expected_part = WHERE_PART
@@ -194,15 +196,5 @@ class QueryParser(object):
 
 if __name__ == "__main__":
     parser = QueryParser()
-    print(parser.parse("select * from foo"))
-    query = parser.parse("""SELECT Id, FirstName, LastName, Country
-  FROM Customer
- WHERE Country IN
-       (SELECT Country
-          FROM Supplier)""")
-    print(query)
-    query = parser.parse("select * from foo where x in (1, 2, 3)")
-    print(query)
-    query = parser.parse(
-        "select * from foo where x in (select * from foo where x in (select * from foo where x in (1, 2, 3))) and y = 1")
+    query = parser.parse("select * from foo order by foo.x DESC")
     print(query)
