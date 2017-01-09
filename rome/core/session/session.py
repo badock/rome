@@ -7,6 +7,7 @@ from rome.driver.lock_driver import get_driver as get_lock_driver
 from rome.core.session.utils import ObjectSaver
 from rome.driver.database_driver import get_driver
 from oslo_db.exception import DBDeadlock
+from utils import find_an_identifier
 
 
 class SessionDeadlock(Exception):
@@ -180,8 +181,9 @@ class Session(object):
         success = True
         # Acquire lock on each objects of the session
         for obj in self.session_objects_add + self.session_objects_delete:
-            if obj.id is not None:
-                lock_name = "session_lock_%s_%s" % (obj.__tablename__, obj.id)
+            identifier = find_an_identifier(obj)
+            if identifier is not None:
+                lock_name = "session_lock_%s_%s" % (obj.__tablename__, identifier)
                 if self.lock_manager.lock(lock_name, 100):
                     locks += [lock_name]
                 else:
@@ -191,21 +193,23 @@ class Session(object):
             # Check the version number of each object
             driver = get_driver()
             for obj in self.session_objects_add + self.session_objects_delete:
-                db_current_version = driver.get_object_version_number(obj.__table__.name, obj.id)
+                identifier = find_an_identifier(obj)
+                db_current_version = driver.get_object_version_number(obj.__table__.name, identifier)
                 version_number = getattr(obj, "___version_number", None)
                 if db_current_version != -1 and version_number != None and db_current_version != version_number:
+                    print("ICI2????? %s ?? %s (%s)" % (db_current_version, version_number, identifier))
                     success = False
                     break
         # Now, we can commit or abort the modifications
         if not success:
             logging.error("sessions %s encountered a conflict, aborting commit (%s)" %
-                          (self.session_id, map(lambda x: x.id, self.session_objects_add)))
+                          (self.session_id, map(lambda x: find_an_identifier(x), self.session_objects_add)))
             for lock in locks:
                 self.lock_manager.unlock(lock)
             raise DBDeadlock()
         else:
             logging.info("session %s has been committed (%s)" %
-                          (self.session_id, map(lambda x: x.id, self.session_objects_add)))
+                          (self.session_id, map(lambda x: find_an_identifier(x), self.session_objects_add)))
             self.acquired_locks = locks
         return success
 
@@ -219,7 +223,7 @@ class Session(object):
             object_saver.save(obj)
         for obj in self.session_objects_delete:
             object_saver.delete(obj)
-        logging.info("session %s committed (%s)" % (self.session_id, map(lambda x: x.id, self.session_objects_add)))
+        logging.info("session %s committed (%s)" % (self.session_id, map(lambda x: find_an_identifier(x), self.session_objects_add)))
         for lock in self.acquired_locks:
             self.lock_manager.unlock(lock)
             self.acquired_locks.remove(lock)
@@ -242,3 +246,6 @@ class Session(object):
 
     def expire(self, instance, attribute_names=None):
         pass
+
+    def _autoflush(self):
+            self.flush()

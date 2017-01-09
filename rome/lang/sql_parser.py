@@ -21,6 +21,7 @@ class QueryParserResult(object):
         self.variables = {}
         self.aliases = {}
         self.function_calls = {}
+        self.outer_join_models = []
 
 
 def correct_invalid_property(term):
@@ -164,6 +165,8 @@ class QueryParser(object):
             if type(term) is Token:
                 if term.value == "*" and expected_part == SELECT_PART:
                     query.attributes = ["*"]
+                elif term.value == "LEFT OUTER JOIN":
+                    query.outer_join_models = query.models[:]
                 else:
                     pass
             elif type(term) is IdentifierList and expected_part == SELECT_PART:
