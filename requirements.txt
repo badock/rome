@@ -12,3 +12,4 @@ etcd
 ujson
 unittest2
 pytest
+sqlparse==0.1.18
