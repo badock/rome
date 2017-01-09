@@ -106,7 +106,8 @@ def date_value_to_int(local_value):
 
 def sql_panda_building_tuples(query_tree,
                               lists_results,
-                              metadata=None):
+                              metadata=None,
+                              subqueries_variables=None):
     """
     Build tuples (join operator in relational algebra).
     :param query_tree: a tree representation of the query
@@ -114,8 +115,13 @@ def sql_panda_building_tuples(query_tree,
     to each entity used in the query.
     :param metadata: a dict that contains metadata that will be used to
     analyse how data have been joined.
+    :param subqueries_variables: a dict that contains variables whose values
+    have been set in sub queries.
     :return: a list of rows
     """
+
+    if not subqueries_variables:
+        subqueries_variables = {}
 
     labels = lists_results.keys()
     if metadata is None:
@@ -197,6 +203,17 @@ def sql_panda_building_tuples(query_tree,
         where_clause += " and %s" % (where_join_clause)
     if where_criterions_clause != "":
         where_clause += " and %s" % (where_criterions_clause)
+
+    # Update where clause with variables collected in sub queries
+    for (variable_name, value) in subqueries_variables.iteritems():
+        if type(value) is list:
+            str_value = "(%s)" % (",".join(map(lambda x: "%s" % (x), value)))
+        else:
+            str_value = "%s"
+        where_join_clause = where_join_clause.replace(variable_name, str_value)
+        where_criterions_clause = where_criterions_clause.replace(variable_name, str_value)
+        where_clause = where_clause.replace(variable_name, str_value)
+
     sql_query = "SELECT %s FROM %s WHERE %s" % (attribute_clause, from_clause,
                                                 where_clause)
     metadata["sql"] = sql_query
@@ -208,7 +225,13 @@ def sql_panda_building_tuples(query_tree,
         if len(current_dataframe_all.columns) > 0:
             dataframe = current_dataframe_all[needed_columns[label]]
         else:
-            return []
+            if len(query_tree.outer_join_models) > 0:
+                empty_columns = {}
+                for column in needed_columns[label]:
+                    empty_columns[column] = []
+                dataframe = pd.DataFrame(empty_columns)
+            else:
+                return []
         dataframe.columns = map(lambda c: "%s__%s" % (label, c),
                                 needed_columns[label])
         env[label] = dataframe
@@ -242,10 +265,14 @@ def sql_panda_building_tuples(query_tree,
                     ".")[0] + "__" + attribute_2.split(".")[1]
                 # Join the tables.
                 try:
+                    merge_method = "outer"
+                    if len(query_tree.outer_join_models) > 0:
+                        if tablename_1 in query_tree.outer_join_models:
+                            merge_method = "left"
                     result = pd.merge(dataframe_1, dataframe_2,
                                       left_on=refactored_attribute_1,
                                       right_on=refactored_attribute_2,
-                                      how="outer")
+                                      how=merge_method)
                     drop_y(result)
                     rename_x(result)
                 except KeyError:
@@ -283,7 +310,7 @@ def sql_panda_building_tuples(query_tree,
     # Update where clause.
     new_where_clause = where_clause
     new_where_clause = " ".join(new_where_clause.split())
-    new_where_clause = new_where_clause.replace("()", "1==1")
+    # new_where_clause = new_where_clause.replace("()", "1==1")
     new_where_clause = new_where_clause.replace("1==1 and", "")
     new_where_clause = new_where_clause.replace("is None", "== 0")
     new_where_clause = new_where_clause.replace("is not None", "!= 0")
@@ -308,6 +335,27 @@ def sql_panda_building_tuples(query_tree,
             old_pattern = "%s.%s" % (table, attribute)
             new_pattern = "%s__%s" % (table, attribute)
             new_where_clause = new_where_clause.replace(old_pattern, new_pattern)
+
+    # Handling IN operator
+    number_regexp = """[0-9]+"""
+    char_regexp = """[a-zA-Z1-9_]"""
+    variable_regexp = """%s+""" % (char_regexp)
+    string_regexp = """\"%s*\"""" % (char_regexp)
+    string_or_number_regexp = """(%s|%s)""" % (number_regexp, string_regexp)
+    regexp = """%s in \((%s)(,%s)*\)""" % (variable_regexp,
+                                          string_or_number_regexp,
+                                          string_or_number_regexp)
+    in_expression_matches = re.search(regexp, new_where_clause)
+    if in_expression_matches:
+        non_none_in_expression_match = in_expression_matches.group()
+        variable = non_none_in_expression_match.split("in")[0]
+        list_value = non_none_in_expression_match.split("in")[1]
+        values_match = re.findall(string_or_number_regexp, list_value)
+        if values_match:
+            non_none_matches = filter(lambda x: x != "", values_match)
+            equivalent_using_or = map(lambda x: "%s == %s" % (variable, x), non_none_matches)
+            equivalent_expr = "(%s)" % (" or ".join(equivalent_using_or))
+            new_where_clause = new_where_clause.replace(non_none_in_expression_match, equivalent_expr)
 
     # Filter data according to where clause.
     result = result.fillna(value=0)

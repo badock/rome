@@ -33,7 +33,11 @@ def has_attribute(obj, key):
         return hasattr(obj, key)
 
 
-def construct_rows(query_tree, entity_class_registry, request_uuid=None, filter_deleted=True):
+def construct_rows(query_tree,
+                   entity_class_registry,
+                   request_uuid=None,
+                   filter_deleted=True,
+                   subqueries_variables=None):
     """
     This function constructs the rows that corresponds to the current orm.
     :param query_tree: a tree representation of the query
@@ -41,8 +45,13 @@ def construct_rows(query_tree, entity_class_registry, request_uuid=None, filter_
     :param request_uuid: a facultative ID for the request
     :param filter_deleted: a boolean. When filter_deleted is True, matching objects that have
     been soft_deleted are filtered
+    :param subqueries_variables: a dict that contains variables whose values
+    have been set in sub queries.
     :return: a list of rows
     """
+
+    if subqueries_variables is None:
+        subqueries_variables = {}
 
     # Find the SQLAlchemy model classes
     models = map(lambda x: entity_class_registry[x], query_tree.models)
@@ -107,7 +116,8 @@ def construct_rows(query_tree, entity_class_registry, request_uuid=None, filter_
     building_tuples = join_building_tuples
     tuples = building_tuples(query_tree,
                              list_results,
-                             metadata=metadata)
+                             metadata=metadata,
+                             subqueries_variables=subqueries_variables)
     part4_start_time = current_milli_time()
 
     # Filtering tuples (cartesian product)

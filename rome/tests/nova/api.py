@@ -3180,7 +3180,7 @@ def network_get(context, network_id, project_only='allow_none'):
 
 @require_context
 @pick_context_manager_reader
-def network_get_all(context, project_only):
+def network_get_all(context, project_only=False):
     result = model_query(context, models.Network, read_deleted="no",
                          project_only=project_only).all()
 
@@ -3192,7 +3192,7 @@ def network_get_all(context, project_only):
 
 @require_context
 @pick_context_manager_reader
-def network_get_all_by_uuids(context, network_uuids, project_only):
+def network_get_all_by_uuids(context, network_uuids, project_only=False):
     result = model_query(context, models.Network, read_deleted="no",
                          project_only=project_only).\
                 filter(models.Network.uuid.in_(network_uuids)).\
