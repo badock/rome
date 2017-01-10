@@ -199,7 +199,7 @@ class AggregateDBApiTestCase(test.TestCase, ModelsObjectComparatorMixin):
     #     expected = db.aggregate_get(ctxt, result['id'])
     #     self.assertEqual(_get_fake_aggr_hosts(), expected['hosts'])
     #     self.assertEqual(_get_fake_aggr_metadata(), expected['metadetails'])
-
+    #
     # def test_aggregate_get_by_uuid(self):
     #     ctxt = rome_context.get_admin_context()
     #     result = _create_aggregate_with_hosts(context=ctxt)

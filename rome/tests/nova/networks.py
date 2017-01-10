@@ -2,7 +2,7 @@
 import unittest
 
 # from models import *
-# from nova import exception
+from nova import exception
 import api as db
 # from oslo_serialization import jsonutils
 # from nova.tests import uuidsentinel
@@ -140,7 +140,7 @@ class NetworkTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
     #     data = db.network_get_associated_fixed_ips(self.ctxt, network2.id)
     #     self.assertEqual(1, len(data))
     #     self.assertFalse(data[0]['default_route'])
-    #
+
     # def test_network_get_associated_fixed_ips(self):
     #     network, instance = self._get_associated_fixed_ip('host.net',
     #         '192.0.2.0/30', '192.0.2.1')
@@ -150,21 +150,21 @@ class NetworkTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
     #     self.assertEqual('192.0.2.1', data[0]['vif_address'])
     #     self.assertEqual(instance.uuid, data[0]['instance_uuid'])
     #     self.assertTrue(data[0][fields.PciDeviceStatus.ALLOCATED])
-    #
-    # def test_network_create_safe(self):
-    #     values = {'host': 'localhost', 'project_id': 'project1'}
-    #     network = db.network_create_safe(self.ctxt, values)
-    #     self.assertEqual(36, len(network['uuid']))
-    #     db_network = db.network_get(self.ctxt, network['id'])
-    #     self._assertEqualObjects(network, db_network)
-    #
+
+    def test_network_create_safe(self):
+        values = {'host': 'localhost', 'project_id': 'project1'}
+        network = db.network_create_safe(self.ctxt, values)
+        self.assertEqual(36, len(network['uuid']))
+        db_network = db.network_get(self.ctxt, network['id'])
+        self._assertEqualObjects(network, db_network)
+
     # def test_network_create_with_duplicate_vlan(self):
     #     values1 = {'host': 'localhost', 'project_id': 'project1', 'vlan': 1}
     #     values2 = {'host': 'something', 'project_id': 'project1', 'vlan': 1}
     #     db.network_create_safe(self.ctxt, values1)
     #     self.assertRaises(exception.DuplicateVlan,
     #                       db.network_create_safe, self.ctxt, values2)
-    #
+
     # def test_network_delete_safe(self):
     #     values = {'host': 'localhost', 'project_id': 'project1'}
     #     network = db.network_create_safe(self.ctxt, values)
@@ -184,7 +184,7 @@ class NetworkTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
     #     ctxt = self.ctxt.elevated(read_deleted='yes')
     #     fixed_ip = db.fixed_ip_get_by_address(ctxt, address1)
     #     self.assertTrue(fixed_ip['deleted'])
-    #
+
     # def test_network_in_use_on_host(self):
     #     values = {'host': 'foo', 'hostname': 'myname'}
     #     instance = db.instance_create(self.ctxt, values)
@@ -198,11 +198,11 @@ class NetworkTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
     #     db.fixed_ip_create(self.ctxt, values)
     #     self.assertTrue(db.network_in_use_on_host(self.ctxt, 1, 'foo'))
     #     self.assertFalse(db.network_in_use_on_host(self.ctxt, 1, 'bar'))
-    #
-    # def test_network_update_nonexistent(self):
-    #     self.assertRaises(exception.NetworkNotFound,
-    #         db.network_update, self.ctxt, 123456, {})
-    #
+
+    def test_network_update_nonexistent(self):
+        self.assertRaises(exception.NetworkNotFound,
+            db.network_update, self.ctxt, 123456, {})
+
     # def test_network_update_with_duplicate_vlan(self):
     #     values1 = {'host': 'localhost', 'project_id': 'project1', 'vlan': 1}
     #     values2 = {'host': 'something', 'project_id': 'project1', 'vlan': 2}
@@ -211,36 +211,36 @@ class NetworkTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
     #     self.assertRaises(exception.DuplicateVlan,
     #                       db.network_update, self.ctxt,
     #                       network_ref["id"], values2)
-    #
-    # def test_network_update(self):
-    #     network = db.network_create_safe(self.ctxt, {'project_id': 'project1',
-    #         'vlan': 1, 'host': 'test.com'})
-    #     db.network_update(self.ctxt, network.id, {'vlan': 2})
-    #     network_new = db.network_get(self.ctxt, network.id)
-    #     self.assertEqual(2, network_new.vlan)
-    #
-    # def test_network_set_host_nonexistent_network(self):
-    #     self.assertRaises(exception.NetworkNotFound, db.network_set_host,
-    #                       self.ctxt, 123456, 'nonexistent')
-    #
-    # def test_network_set_host_already_set_correct(self):
-    #     values = {'host': 'example.com', 'project_id': 'project1'}
-    #     network = db.network_create_safe(self.ctxt, values)
-    #     self.assertIsNone(db.network_set_host(self.ctxt, network.id,
-    #                       'example.com'))
-    #
-    # def test_network_set_host_already_set_incorrect(self):
-    #     values = {'host': 'example.com', 'project_id': 'project1'}
-    #     network = db.network_create_safe(self.ctxt, values)
-    #     self.assertIsNone(db.network_set_host(self.ctxt, network.id,
-    #                                           'new.example.com'))
-    #
-    # def test_network_set_host_with_initially_no_host(self):
-    #     values = {'project_id': 'project1'}
-    #     network = db.network_create_safe(self.ctxt, values)
-    #     db.network_set_host(self.ctxt, network.id, 'example.com')
-    #     self.assertEqual('example.com',
-    #         db.network_get(self.ctxt, network.id).host)
+
+    def test_network_update(self):
+        network = db.network_create_safe(self.ctxt, {'project_id': 'project1',
+            'vlan': 1, 'host': 'test.com'})
+        db.network_update(self.ctxt, network.id, {'vlan': 2})
+        network_new = db.network_get(self.ctxt, network.id)
+        self.assertEqual(2, network_new.vlan)
+
+    def test_network_set_host_nonexistent_network(self):
+        self.assertRaises(exception.NetworkNotFound, db.network_set_host,
+                          self.ctxt, 123456, 'nonexistent')
+
+    def test_network_set_host_already_set_correct(self):
+        values = {'host': 'example.com', 'project_id': 'project1'}
+        network = db.network_create_safe(self.ctxt, values)
+        self.assertIsNone(db.network_set_host(self.ctxt, network.id,
+                          'example.com'))
+
+    def test_network_set_host_already_set_incorrect(self):
+        values = {'host': 'example.com', 'project_id': 'project1'}
+        network = db.network_create_safe(self.ctxt, values)
+        self.assertIsNone(db.network_set_host(self.ctxt, network.id,
+                                              'new.example.com'))
+
+    def test_network_set_host_with_initially_no_host(self):
+        values = {'project_id': 'project1'}
+        network = db.network_create_safe(self.ctxt, values)
+        db.network_set_host(self.ctxt, network.id, 'example.com')
+        self.assertEqual('example.com',
+            db.network_get(self.ctxt, network.id).host)
 
     # def test_network_set_host_succeeds_retry_on_deadlock(self):
     #     values = {'project_id': 'project1'}
@@ -325,9 +325,9 @@ class NetworkTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
         self._assertEqualObjects(network,
             db.network_get_by_cidr(self.ctxt, cidr_v6))
 
-    # def test_network_get_by_cidr_nonexistent(self):
-    #     self.assertRaises(exception.NetworkNotFoundForCidr,
-    #         db.network_get_by_cidr, self.ctxt, '192.0.2.0/30')
+    def test_network_get_by_cidr_nonexistent(self):
+        self.assertRaises(exception.NetworkNotFoundForCidr,
+            db.network_get_by_cidr, self.ctxt, '192.0.2.0/30')
 
     def test_network_get_by_uuid(self):
         network = db.network_create_safe(self.ctxt,
@@ -335,13 +335,13 @@ class NetworkTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
         self._assertEqualObjects(network,
             db.network_get_by_uuid(self.ctxt, network.uuid))
 
-    # def test_network_get_by_uuid_nonexistent(self):
-    #     self.assertRaises(exception.NetworkNotFoundForUUID,
-    #         db.network_get_by_uuid, self.ctxt, 'non-existent-uuid')
-    #
-    # def test_network_get_all_by_uuids_no_networks(self):
-    #     self.assertRaises(exception.NoNetworksFound,
-    #         db.network_get_all_by_uuids, self.ctxt, ['non-existent-uuid'])
+    def test_network_get_by_uuid_nonexistent(self):
+        self.assertRaises(exception.NetworkNotFoundForUUID,
+            db.network_get_by_uuid, self.ctxt, 'non-existent-uuid')
+
+    def test_network_get_all_by_uuids_no_networks(self):
+        self.assertRaises(exception.NoNetworksFound,
+            db.network_get_all_by_uuids, self.ctxt, ['non-existent-uuid'])
 
     def test_network_get_all_by_uuids(self):
         net1 = db.network_create_safe(self.ctxt, {})
@@ -349,9 +349,9 @@ class NetworkTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
         self._assertEqualListsOfObjects([net1, net2],
             db.network_get_all_by_uuids(self.ctxt, [net1.uuid, net2.uuid]))
 
-    # def test_network_get_all_no_networks(self):
-    #     self.assertRaises(exception.NoNetworksFound,
-    #         db.network_get_all, self.ctxt, [])
+    def test_network_get_all_no_networks(self):
+        self.assertRaises(exception.NoNetworksFound,
+            db.network_get_all, self.ctxt, [])
 
     def test_network_get_all(self):
         network = db.network_create_safe(self.ctxt, {})
@@ -359,14 +359,14 @@ class NetworkTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
         self.assertEqual(1, len(network_db))
         self._assertEqualObjects(network, network_db[0])
 
-    # def test_network_get_all_admin_user(self):
-    #     network1 = db.network_create_safe(self.ctxt, {})
-    #     network2 = db.network_create_safe(self.ctxt,
-    #                                       {'project_id': 'project1'})
-    #     self._assertEqualListsOfObjects([network1, network2],
-    #                                     db.network_get_all(self.ctxt,
-    #                                                        project_only=True))
-    #
+    def test_network_get_all_admin_user(self):
+        network1 = db.network_create_safe(self.ctxt, {})
+        network2 = db.network_create_safe(self.ctxt,
+                                          {'project_id': 'project1'})
+        self._assertEqualListsOfObjects([network1, network2],
+                                        db.network_get_all(self.ctxt,
+                                                           project_only=True))
+
     # def test_network_get_all_normal_user(self):
     #     # normal_ctxt = context.RequestContext('fake', 'fake')
     #     db.network_create_safe(self.ctxt, {})
@@ -376,35 +376,35 @@ class NetworkTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
     #     network_db = db.network_get_all(self.ctxt, project_only=True)
     #     self.assertEqual(1, len(network_db))
     #     self._assertEqualObjects(network1, network_db[0])
-    #
-    # def test_network_get(self):
-    #     network = db.network_create_safe(self.ctxt, {})
-    #     self._assertEqualObjects(db.network_get(self.ctxt, network.id),
-    #         network)
-    #     db.network_delete_safe(self.ctxt, network.id)
-    #     self.assertRaises(exception.NetworkNotFound,
-    #         db.network_get, self.ctxt, network.id)
 
-    # def test_network_associate(self):
-    #     network = db.network_create_safe(self.ctxt, {})
-    #     self.assertIsNone(network.project_id)
-    #     db.network_associate(self.ctxt, "project1", network.id)
-    #     self.assertEqual("project1", db.network_get(self.ctxt,
-    #         network.id).project_id)
+    def test_network_get(self):
+        network = db.network_create_safe(self.ctxt, {})
+        self._assertEqualObjects(db.network_get(self.ctxt, network.id),
+            network)
+        db.network_delete_safe(self.ctxt, network.id)
+        self.assertRaises(exception.NetworkNotFound,
+            db.network_get, self.ctxt, network.id)
 
-    # def test_network_diassociate(self):
-    #     network = db.network_create_safe(self.ctxt,
-    #         {'project_id': 'project1', 'host': 'test.net'})
-    #     # disassociate project
-    #     db.network_disassociate(self.ctxt, network.id, False, True)
-    #     self.assertIsNone(db.network_get(self.ctxt, network.id).project_id)
-    #     # disassociate host
-    #     db.network_disassociate(self.ctxt, network.id, True, False)
-    #     self.assertIsNone(db.network_get(self.ctxt, network.id).host)
-    #
-    # def test_network_count_reserved_ips(self):
-    #     net = db.network_create_safe(self.ctxt, {})
-    #     self.assertEqual(0, db.network_count_reserved_ips(self.ctxt, net.id))
-    #     db.fixed_ip_create(self.ctxt, {'network_id': net.id,
-    #         'reserved': True})
-    #     self.assertEqual(1, db.network_count_reserved_ips(self.ctxt, net.id))
+    def test_network_associate(self):
+        network = db.network_create_safe(self.ctxt, {})
+        self.assertIsNone(network.project_id)
+        db.network_associate(self.ctxt, "project1", network.id)
+        self.assertEqual("project1", db.network_get(self.ctxt,
+            network.id).project_id)
+
+    def test_network_diassociate(self):
+        network = db.network_create_safe(self.ctxt,
+            {'project_id': 'project1', 'host': 'test.net'})
+        # disassociate project
+        db.network_disassociate(self.ctxt, network.id, False, True)
+        self.assertIsNone(db.network_get(self.ctxt, network.id).project_id)
+        # disassociate host
+        db.network_disassociate(self.ctxt, network.id, True, False)
+        self.assertIsNone(db.network_get(self.ctxt, network.id).host)
+
+    def test_network_count_reserved_ips(self):
+        net = db.network_create_safe(self.ctxt, {})
+        self.assertEqual(0, db.network_count_reserved_ips(self.ctxt, net.id))
+        db.fixed_ip_create(self.ctxt, {'network_id': net.id,
+            'reserved': True})
+        self.assertEqual(1, db.network_count_reserved_ips(self.ctxt, net.id))
