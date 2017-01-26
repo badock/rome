@@ -130,6 +130,17 @@ class AggregateDBApiTestCase(test.TestCase, ModelsObjectComparatorMixin):
         # self.context = context.RequestContext(self.user_id, self.project_id)
         clean_rome_all_databases()
 
+    def assertThat(self, matchee, matcher, message='', verbose=False):
+        """Assert that matchee is matched by matcher.
+
+        :param matchee: An object to match with matcher.
+        :param matcher: An object meeting the testtools.Matcher protocol.
+        :raises MismatchError: When matcher does not match thing.
+        """
+        mismatch_error = self._matchHelper(matchee, matcher, message, verbose)
+        if mismatch_error is not None:
+            raise mismatch_error
+
     def test_aggregate_create_no_metadata(self):
         result = _create_aggregate(metadata=None)
         self.assertEqual(result['name'], 'fake_aggregate')
