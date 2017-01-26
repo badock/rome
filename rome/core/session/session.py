@@ -150,7 +150,8 @@ class Session(object):
                 self.add(watch["object"])
 
         logging.info("flushing session %s" % (self.session_id))
-        if self.can_commit_request():
+        objects_count = len(self.session_objects_add) + len(self.session_objects_delete)
+        if objects_count > 0 and self.can_commit_request():
             logging.info("committing session %s" % (self.session_id))
             self.commit()
 
@@ -197,7 +198,6 @@ class Session(object):
                 db_current_version = driver.get_object_version_number(obj.__table__.name, identifier)
                 version_number = getattr(obj, "___version_number", None)
                 if db_current_version != -1 and version_number != None and db_current_version != version_number:
-                    print("ICI2????? %s ?? %s (%s)" % (db_current_version, version_number, identifier))
                     success = False
                     break
         # Now, we can commit or abort the modifications

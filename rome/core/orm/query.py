@@ -18,6 +18,7 @@ class Query(object):
         self.session = kwargs.pop("__session", None)
         self.query_tree = None
         self.entity_class_registry = None
+        self._autoflush = True
 
         # Sometimes the query must return attributes rather than objects. The following block
         # is in charge of finding which attributes should be returned by the query.
@@ -127,6 +128,10 @@ class Query(object):
         from rome.core.orm.utils import get_literal_query
         from rome.lang.sql_parser import QueryParser
         from rome.core.rows.rows import construct_rows
+
+        if self._autoflush:
+            if self.session is not None:
+                self.session.commit()
 
         if not self.query_tree:
             sql_query = get_literal_query(self.sa_query)
@@ -302,6 +307,21 @@ class Query(object):
             session.add(obj)
         session.flush()
         return len(matching_objects)
+
+    def update_on_match(self, specimen, surrogate_key, values, **kw):
+        matching_objects = self.matching_objects(filter_deleted=False)
+        for matching_object in matching_objects:
+            matching = False
+            if matching_object[surrogate_key] == specimen[surrogate_key]:
+                    matching = True
+            if matching:
+                session = self.session
+                for k, v in values.iteritems():
+                    matching_object[k] = v
+                session.add(matching_object)
+                session.flush()
+                return matching_object
+        return None
 
     def one(self):
         matching_objects = self.matching_objects(filter_deleted=False)

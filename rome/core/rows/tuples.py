@@ -319,16 +319,18 @@ def sql_panda_building_tuples(query_tree,
     new_where_clause = new_where_clause.replace("NOT", " not ")
     new_where_clause = new_where_clause.strip()
 
-    # <Quick fix for dates>
-    fix_date = False
-    for non_joining_criterion in non_joining_criteria:
-        if "_at " in str(non_joining_criterion):
-            fix_date = True
+    # <Quick fix for handling dates>
+    fix_date = True
     if fix_date:
-        for col in result:
-            if col.endswith("_at"):
-                result[col] = result[col].apply(lambda x: date_value_to_int(x))
-    # </Quick fix for dates>
+        for column_name in result:
+            column = result[column_name]
+            if column.dtype.name == "object" and len(column) > 0:
+                column_item = column[0]
+                if type(column_item) is not dict:
+                    continue
+                if "simplify_strategy" in column_item and column_item["simplify_strategy"] == "datetime":
+                    result[column_name] = column.apply(lambda x: x["value"])
+    # </Quick fix for handling dates>
 
     for table in needed_columns:
         for attribute in needed_columns[table]:
@@ -343,8 +345,8 @@ def sql_panda_building_tuples(query_tree,
     string_regexp = """\"%s*\"""" % (char_regexp)
     string_or_number_regexp = """(%s|%s)""" % (number_regexp, string_regexp)
     regexp = """%s in \((%s)(,%s)*\)""" % (variable_regexp,
-                                          string_or_number_regexp,
-                                          string_or_number_regexp)
+                                           string_or_number_regexp,
+                                           string_or_number_regexp)
     in_expression_matches = re.search(regexp, new_where_clause)
     if in_expression_matches:
         non_none_in_expression_match = in_expression_matches.group()

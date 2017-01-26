@@ -10,7 +10,7 @@ import rome.driver.database_driver as database_driver
 from sqlalchemy.orm.collections import CollectionAdapter
 from sqlalchemy.orm.state import InstanceState
 
-DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
 
 
 def datetime_to_int(date_object):

@@ -2715,7 +2715,14 @@ def instance_update_and_get_original(context, instance_uuid, values,
     """
     instance_ref = _instance_get_by_uuid(context, instance_uuid,
                                          columns_to_join=columns_to_join)
-    return (copy.copy(instance_ref), _instance_update(
+
+    # NOTE(badock): modifying the following block of code to handle copy.
+    instance_ref_copy = models.Instance()
+    for k, v in instance_ref:
+        if k not in ["name"]:
+            instance_ref_copy[k] = v
+
+    return (instance_ref_copy, _instance_update(
         context, instance_uuid, values, expected, original=instance_ref))
 
 
