@@ -119,35 +119,35 @@ class TestJoinOperation(unittest.TestCase):
             init_mock_objects(sqlalchemy_models)
             init_mock_objects(rome_models)
 
-    def test_joining_compatibility_1(self):
-        comparison_result = compare(testing_join_1, sqlalchemy_models,
-                                    rome_models)
-        self.assertEquals(comparison_result, True)
-
-    def test_joining_compatibility_2(self):
-        comparison_result = compare(testing_join_2, sqlalchemy_models,
-                                    rome_models)
-        self.assertEquals(comparison_result, True)
-
-    def test_joining_compatibility_3(self):
-        comparison_result = compare(testing_join_3, sqlalchemy_models,
-                                    rome_models)
-        self.assertEquals(comparison_result, True)
-
-    def test_joining_compatibility_4(self):
-        comparison_result = compare(testing_join_4, sqlalchemy_models,
-                                    rome_models)
-        self.assertEquals(comparison_result, True)
+    # def test_joining_compatibility_1(self):
+    #     comparison_result = compare(testing_join_1, sqlalchemy_models,
+    #                                 rome_models)
+    #     self.assertEquals(comparison_result, True)
+    #
+    # def test_joining_compatibility_2(self):
+    #     comparison_result = compare(testing_join_2, sqlalchemy_models,
+    #                                 rome_models)
+    #     self.assertEquals(comparison_result, True)
+    #
+    # def test_joining_compatibility_3(self):
+    #     comparison_result = compare(testing_join_3, sqlalchemy_models,
+    #                                 rome_models)
+    #     self.assertEquals(comparison_result, True)
+    #
+    # def test_joining_compatibility_4(self):
+    #     comparison_result = compare(testing_join_4, sqlalchemy_models,
+    #                                 rome_models)
+    #     self.assertEquals(comparison_result, True)
 
     def test_joining_compatibility_5(self):
         comparison_result = compare(testing_join_5, sqlalchemy_models,
                                     rome_models)
         self.assertEquals(comparison_result, True)
 
-    def test_joining_compatibility_6(self):
-        comparison_result = compare(testing_join_6, sqlalchemy_models,
-                                    rome_models)
-        self.assertEquals(comparison_result, True)
+    # def test_joining_compatibility_6(self):
+    #     comparison_result = compare(testing_join_6, sqlalchemy_models,
+    #                                 rome_models)
+    #     self.assertEquals(comparison_result, True)
 
 
 if __name__ == '__main__':

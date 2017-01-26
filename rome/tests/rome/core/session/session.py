@@ -64,35 +64,6 @@ def test_sessions_1(query_module):
 
     threads = []
     for i in range(0, NB_ADDRESS):
-        t = threading.Thread(target=network_address_allocate,
-                             args=(i, query_module))
-        threads += [t]
-
-    for t in threads:
-        t.start()
-
-    for t in threads:
-        t.join()
-
-    allocated_address_count = query_module.get_query(models_module.NetworkAddress).filter(
-        models_module.NetworkAddress.allocated == True).count()
-    unallocated_address_count = query_module.get_query(models_module.NetworkAddress).filter(
-        models_module.NetworkAddress.allocated == False).count()
-
-    for address in query_module.get_query(models_module.NetworkAddress).all():
-        print("%s => %s,%s" % (address.id, address.allocated, address.network_id))
-
-    return {
-        "allocated_address_count": allocated_address_count,
-        "unallocated_address_count": unallocated_address_count
-    }
-
-
-def test_sessions_2(query_module):
-    models_module = sqlalchemy_models
-
-    threads = []
-    for i in range(0, NB_ADDRESS):
         t = threading.Thread(target=network_address_allocate_with_retry,
                              args=(i, query_module))
         threads += [t]
@@ -139,15 +110,10 @@ class TestSessions(unittest.TestCase):
         init_mock_objects(rome_models)
 
     def test_sessions_1(self):
-        result = test_sessions_1(rome_models)
-        self.assertNotEqual(result["allocated_address_count"], NB_ADDRESS)
-        self.assertNotEqual(result["unallocated_address_count"], 0)
-
-    def test_sessions_2(self):
         for i in range(0, NB_RUN):
             self.setUp()
             # logging.info("running test_sessions_2 %s/%s" % (i, NB_RUN))
-            result = test_sessions_2(rome_models)
+            result = test_sessions_1(rome_models)
             self.assertEqual(result["allocated_address_count"], NB_ADDRESS)
             self.assertEqual(result["unallocated_address_count"], 0)
 

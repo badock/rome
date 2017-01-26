@@ -1,7 +1,7 @@
 pytz
-oslo.utils>=1.0.0
-oslo.db>=1.0.0 
-SQLAlchemy>=0.9.7,<=0.9.99
+oslo.utils==3.21.0
+oslo.db==4.16.0
+SQLAlchemy==1.0.16
 pandas>=0.17.0,<1.0
 pandasql>=0.6.3,<1.0
 redis==2.10.5
@@ -12,3 +12,4 @@ etcd
 ujson
 unittest2
 pytest
+sqlparse==0.1.18
