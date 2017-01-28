@@ -649,15 +649,35 @@ def _compute_node_select(context, filters=None, limit=None, marker=None):
 
 
 def _compute_node_fetchall(context, filters=None, limit=None, marker=None):
-    select = _compute_node_select(context, filters, limit=limit, marker=marker)
-    engine = get_engine(context=context)
-    conn = engine.connect()
 
-    results = conn.execute(select).fetchall()
+    if filters is None:
+        filters = {}
 
-    # Callers expect dict-like objects, not SQLAlchemy RowProxy objects...
-    results = [dict(r) for r in results]
-    conn.close()
+    query = model_query(context, models.ComputeNode)
+
+    if context.read_deleted == "no":
+        query = query.filter(models.ComputeNode.deleted == 0)
+    if "compute_id" in filters:
+        query = query.filter(models.ComputeNode.id == filters["compute_id"])
+    if "service_id" in filters:
+        query = query.filter(models.ComputeNode.service_id == filters["service_id"])
+    if "host" in filters:
+        query = query.filter(models.ComputeNode.host == filters["host"])
+    if "hypervisor_hostname" in filters:
+        hyp_hostname = filters["hypervisor_hostname"]
+        query = query.filter(models.ComputeNode.hypervisor_hostname == hyp_hostname)
+    if marker is not None:
+        try:
+            compute_node_get(context, marker)
+        except exception.ComputeHostNotFound:
+            raise exception.MarkerNotFound(marker=marker)
+        query = query.filter(models.ComputeNode.id > marker)
+
+    results = query.all()
+
+    if limit is not None:
+        results = results[0:limit]
+
     return results
 
 
@@ -768,76 +788,36 @@ def compute_node_delete(context, compute_id):
 @pick_context_manager_reader
 def compute_node_statistics(context):
     """Compute statistics over all compute nodes."""
-    engine = get_engine(context=context)
-    services_tbl = models.Service.__table__
+    compute_nodes = _compute_node_fetchall(context)
 
-    inner_sel = sa.alias(_compute_node_select(context), name='inner_sel')
+    count = len(compute_nodes)
+    vcpus = sum(map(lambda cn: cn.vcpus, compute_nodes))
+    memory_mb = sum(map(lambda cn: cn.memory_mb, compute_nodes))
+    local_gb = sum(map(lambda cn: cn.local_gb, compute_nodes))
+    vcpus_used = sum(map(lambda cn: cn.vcpus_used, compute_nodes))
+    memory_mb_used = sum(map(lambda cn: cn.memory_mb_used, compute_nodes))
+    local_gb_used = sum(map(lambda cn: cn.local_gb_used, compute_nodes))
+    free_ram_mb = sum(map(lambda cn: cn.free_ram_mb, compute_nodes))
+    free_disk_gb = sum(map(lambda cn: cn.free_disk_gb, compute_nodes))
+    current_workload = sum(map(lambda cn: cn.current_workload, compute_nodes))
+    running_vms = sum(map(lambda cn: cn.running_vms, compute_nodes))
+    disk_available_least = sum(map(lambda cn: cn.disk_available_least, compute_nodes))
 
-    # TODO(sbauza): Remove the service_id filter in a later release
-    # once we are sure that all compute nodes report the host field
-    j = sa.join(
-        inner_sel, services_tbl,
-        sql.and_(
-            sql.or_(
-                inner_sel.c.host == services_tbl.c.host,
-                inner_sel.c.service_id == services_tbl.c.id
-            ),
-            services_tbl.c.disabled == false(),
-            services_tbl.c.binary == 'nova-compute'
-        )
-    )
+    results = {
+        'count': count,
+        'vcpus': vcpus,
+        'memory_mb': memory_mb,
+        'local_gb': local_gb,
+        'vcpus_used': vcpus_used,
+        'memory_mb_used': memory_mb_used,
+        'local_gb_used': local_gb_used,
+        'free_ram_mb': free_ram_mb,
+        'free_disk_gb': free_disk_gb,
+        'current_workload': current_workload,
+        'running_vms': running_vms,
+        'disk_available_least': disk_available_least
+    }
 
-    # NOTE(jaypipes): This COALESCE() stuff is temporary while the data
-    # migration to the new resource providers inventories and allocations
-    # tables is completed.
-    agg_cols = [
-        func.count().label('count'),
-        sql.func.sum(
-            inner_sel.c.vcpus
-        ).label('vcpus'),
-        sql.func.sum(
-            inner_sel.c.memory_mb
-        ).label('memory_mb'),
-        sql.func.sum(
-            inner_sel.c.local_gb
-        ).label('local_gb'),
-        sql.func.sum(
-            inner_sel.c.vcpus_used
-        ).label('vcpus_used'),
-        sql.func.sum(
-            inner_sel.c.memory_mb_used
-        ).label('memory_mb_used'),
-        sql.func.sum(
-            inner_sel.c.local_gb_used
-        ).label('local_gb_used'),
-        sql.func.sum(
-            inner_sel.c.free_ram_mb
-        ).label('free_ram_mb'),
-        sql.func.sum(
-            inner_sel.c.free_disk_gb
-        ).label('free_disk_gb'),
-        sql.func.sum(
-            inner_sel.c.current_workload
-        ).label('current_workload'),
-        sql.func.sum(
-            inner_sel.c.running_vms
-        ).label('running_vms'),
-        sql.func.sum(
-            inner_sel.c.disk_available_least
-        ).label('disk_available_least'),
-    ]
-    select = sql.select(agg_cols).select_from(j)
-    conn = engine.connect()
-
-    results = conn.execute(select).fetchone()
-
-    # Build a dict of the info--making no assumptions about result
-    fields = ('count', 'vcpus', 'memory_mb', 'local_gb', 'vcpus_used',
-              'memory_mb_used', 'local_gb_used', 'free_ram_mb', 'free_disk_gb',
-              'current_workload', 'running_vms', 'disk_available_least')
-    results = {field: int(results[idx] or 0)
-               for idx, field in enumerate(fields)}
-    conn.close()
     return results
 
 
