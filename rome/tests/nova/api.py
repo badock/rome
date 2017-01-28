@@ -1276,7 +1276,11 @@ def fixed_ip_associate(context, address, instance_uuid, network_id=None,
         raise db_exc.RetryRequest(
             exception.FixedIpAssociateFailed(net=network_id))
 
-    return fixed_ip_ref
+    updated_fixed_ip_ref = model_query(context, models.FixedIp, read_deleted="no"). \
+        filter_by(id=fixed_ip_ref.id).\
+        first()
+
+    return updated_fixed_ip_ref
 
 
 @oslo_db_api.wrap_db_retry(max_retries=5, retry_on_deadlock=True,
@@ -1296,14 +1300,20 @@ def fixed_ip_associate_pool(context, network_id, instance_uuid=None,
 
     network_or_none = or_(models.FixedIp.network_id == network_id,
                           models.FixedIp.network_id == null())
-    fixed_ip_ref = model_query(context, models.FixedIp, read_deleted="no").\
+    fixed_ip_refs = model_query(context, models.FixedIp, read_deleted="no").\
                            filter(network_or_none).\
                            filter_by(reserved=False).\
                            filter_by(instance_uuid=None).\
                            filter_by(host=None).\
                            filter_by(leased=False).\
-                           order_by(asc(models.FixedIp.updated_at)).\
-                           first()
+                           all()
+
+    fixed_ip_refs = sorted(fixed_ip_refs, key=lambda x: x.updated_at)
+
+    if len(fixed_ip_refs) > 0:
+        fixed_ip_ref = fixed_ip_refs[0]
+    else:
+        fixed_ip_ref = None
 
     if not fixed_ip_ref:
         raise exception.NoMoreFixedIps(net=network_id)
@@ -1334,7 +1344,11 @@ def fixed_ip_associate_pool(context, network_id, instance_uuid=None,
         raise db_exc.RetryRequest(
             exception.FixedIpAssociateFailed(net=network_id))
 
-    return fixed_ip_ref
+    updated_fixed_ip_refs = model_query(context, models.FixedIp, read_deleted="no").\
+        filter_by(id=fixed_ip_ref.id).\
+        first()
+
+    return updated_fixed_ip_refs
 
 
 @require_context
@@ -1376,7 +1390,8 @@ def fixed_ip_disassociate_all_by_timeout(context, host, time):
     host_filter = or_(and_(models.Instance.host == host,
                            models.Network.multi_host == true()),
                       models.Network.host == host)
-    result = model_query(context, models.FixedIp, (models.FixedIp.id,),
+    # NOTE(badock): removing (FixedIP.id) argument
+    result = model_query(context, models.FixedIp,
                          read_deleted="no").\
             filter(models.FixedIp.allocated == false()).\
             filter(models.FixedIp.updated_at < time).\
@@ -1386,7 +1401,7 @@ def fixed_ip_disassociate_all_by_timeout(context, host, time):
                   models.Instance.uuid == models.FixedIp.instance_uuid)).\
             filter(host_filter).\
             all()
-    fixed_ip_ids = [fip[0] for fip in result]
+    fixed_ip_ids = [fip.id for fip in result]
     if not fixed_ip_ids:
         return 0
     result = model_query(context, models.FixedIp).\
@@ -2581,11 +2596,12 @@ def _instance_get_all_uuids_by_host(context, host):
     Returns a list of UUIDs, not Instance model objects.
     """
     uuids = []
-    for tuple in model_query(context, models.Instance, (models.Instance.uuid,),
+    # Note(badock): removing the (models.Instance.uuid) argument
+    for instance in model_query(context, models.Instance,
                              read_deleted="no").\
                 filter_by(host=host).\
                 all():
-        uuids.append(tuple[0])
+        uuids.append(instance.uuid)
     return uuids
 
 
