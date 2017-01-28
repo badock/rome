@@ -144,15 +144,15 @@ class Session(object):
         :param args: list of arguments
         :param kwargs: key/value arguments
         """
-        logging.info("processing watched objects %s" % (self.session_id))
+        logging.debug("processing watched objects %s" % (self.session_id))
         for watch in self.session_objects_watch:
             if hash(str(watch["object"].__dict__)) != watch["hash"]:
                 self.add(watch["object"])
 
-        logging.info("flushing session %s" % (self.session_id))
+        logging.debug("flushing session %s" % (self.session_id))
         objects_count = len(self.session_objects_add) + len(self.session_objects_delete)
         if objects_count > 0 and self.can_commit_request():
-            logging.info("committing session %s" % (self.session_id))
+            logging.debug("committing session %s" % (self.session_id))
             self.commit()
 
     def can_be_used(self, obj):
@@ -202,13 +202,13 @@ class Session(object):
                     break
         # Now, we can commit or abort the modifications
         if not success:
-            logging.error("sessions %s encountered a conflict, aborting commit (%s)" %
+            logging.debug("sessions %s encountered a conflict, aborting commit (%s)" %
                           (self.session_id, map(lambda x: find_an_identifier(x), self.session_objects_add)))
             for lock in locks:
                 self.lock_manager.unlock(lock)
             raise DBDeadlock()
         else:
-            logging.info("session %s has been committed (%s)" %
+            logging.debug("session %s has been committed (%s)" %
                           (self.session_id, map(lambda x: find_an_identifier(x), self.session_objects_add)))
             self.acquired_locks = locks
         return success
@@ -217,13 +217,13 @@ class Session(object):
         """
         Commit the modifications of the session.
         """
-        logging.info("session %s will start commit" % (self.session_id))
+        logging.debug("session %s will start commit" % (self.session_id))
         object_saver = ObjectSaver(self)
         for obj in self.session_objects_add:
             object_saver.save(obj)
         for obj in self.session_objects_delete:
             object_saver.delete(obj)
-        logging.info("session %s committed (%s)" % (self.session_id, map(lambda x: find_an_identifier(x), self.session_objects_add)))
+        logging.debug("session %s committed (%s)" % (self.session_id, map(lambda x: find_an_identifier(x), self.session_objects_add)))
         for lock in self.acquired_locks:
             self.lock_manager.unlock(lock)
             self.acquired_locks.remove(lock)
