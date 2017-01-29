@@ -122,7 +122,15 @@ class QueryParser(object):
             if type(term) is Parenthesis:
                 new_term = "%s " % (parse_parenthesis(term, query))
             elif type(term) is Comparison:
-                new_term = "%s " % (term)
+                if type(term.right) is Parenthesis:
+                    right = "%s " % (parse_parenthesis(term.right, query))
+                else:
+                    right = "%s" % (term.right)
+                operator_candidates = filter(lambda x: type(x) is Token and x.value not in [" ", ""], term.tokens)
+                if len(operator_candidates) > 0:
+                    new_term = "%s %s %s" % (term.left, operator_candidates[0], right)
+                else:
+                    raise Exception("Could not understand how to parse this parenthesis :-(")
             elif type(term) is Token:
                 new_term = "%s " % (term.value.strip())
             elif type(term) is Identifier:
@@ -199,5 +207,11 @@ class QueryParser(object):
 
 if __name__ == "__main__":
     parser = QueryParser()
-    query = parser.parse("select * from foo order by foo.x DESC")
+    query = parser.parse("""
+    SELECT instance_type_projects.created_at AS instance_type_projects_created_at, instance_type_projects.updated_at AS instance_type_projects_updated_at, instance_type_projects.deleted_at AS instance_type_projects_deleted_at, instance_type_projects.deleted AS instance_type_projects_deleted, instance_type_projects.id AS instance_type_projects_id, instance_type_projects.instance_type_id AS instance_type_projects_instance_type_id, instance_type_projects.project_id AS instance_type_projects_project_id
+FROM instance_type_projects
+WHERE instance_type_projects.instance_type_id = (SELECT instance_types.id AS instance_types_id
+FROM instance_types
+WHERE instance_types.flavorid = 'fake_flavor')
+    """)
     print(query)
