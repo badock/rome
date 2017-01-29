@@ -19,6 +19,7 @@ class Query(object):
         self.query_tree = None
         self.entity_class_registry = None
         self._autoflush = True
+        self.read_deleted = "no"
 
         # Sometimes the query must return attributes rather than objects. The following block
         # is in charge of finding which attributes should be returned by the query.
@@ -87,6 +88,7 @@ class Query(object):
                         new_query = Query(*[], **{"__query": call_result})
                         new_query.set_sa_query(call_result)
                         new_query.session = self.session
+                        new_query.read_deleted = self.read_deleted
                         new_query.required_attributes = self.required_attributes
                         return new_query
                     return call_result
@@ -129,6 +131,10 @@ class Query(object):
         from rome.lang.sql_parser import QueryParser
         from rome.core.rows.rows import construct_rows
 
+        read_deleted = self.read_deleted
+        if filter_deleted:
+            read_deleted = "no"
+
         if self._autoflush:
             if self.session is not None:
                 self.session.commit()
@@ -155,7 +161,7 @@ class Query(object):
 
         rows = construct_rows(query_tree,
                               entity_class_registry,
-                              filter_deleted=filter_deleted,
+                              read_deleted=read_deleted,
                               subqueries_variables= subqueries_variables)
 
         def row_function(row, column_descriptions, decoder):
@@ -237,7 +243,7 @@ class Query(object):
 
         return final_rows
 
-    def all(self, filter_deleted=True):
+    def all(self, filter_deleted=False):
         """
         Execute the query, and return its result as rows
         :param filter_deleted: a boolean. When filter_deleted is True, matching objects that have
@@ -247,7 +253,7 @@ class Query(object):
         objects = self.matching_objects(filter_deleted=filter_deleted)
         return objects
 
-    def first(self, filter_deleted=True):
+    def first(self, filter_deleted=False):
         """
         Executes the query and returns the first matching row.
         :param filter_deleted: a boolean. When filter_deleted is True, matching objects that have

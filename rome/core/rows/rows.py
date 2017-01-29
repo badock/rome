@@ -36,15 +36,15 @@ def has_attribute(obj, key):
 def construct_rows(query_tree,
                    entity_class_registry,
                    request_uuid=None,
-                   filter_deleted=True,
+                   read_deleted=True,
                    subqueries_variables=None):
     """
     This function constructs the rows that corresponds to the current orm.
     :param query_tree: a tree representation of the query
     :param entity_class_registry: class registry containing entity classes
     :param request_uuid: a facultative ID for the request
-    :param filter_deleted: a boolean. When filter_deleted is True, matching objects that have
-    been soft_deleted are filtered
+    :param read_deleted: a string. Value can be "yes", "no" and "only". Specify
+    if deleted items should be included in the results of the query
     :param subqueries_variables: a dict that contains variables whose values
     have been set in sub queries.
     :return: a list of rows
@@ -103,8 +103,12 @@ def construct_rows(query_tree,
         reduced_hints = map(lambda x: (x.attribute, x.value), selected_hints)
         objects = get_objects(table_name, hints=reduced_hints)
         # Filter soft_deleted objects
-        if filter_deleted:
+        if read_deleted == "no":
             objects = filter(lambda o: not ("deleted" in o and o["deleted"] == o["id"]), objects)
+        elif read_deleted == "only":
+            objects = filter(lambda o: not ("deleted" in o and o["deleted"] != o["id"]), objects)
+
+
         list_results[table_name] = objects
     part3_start_time = current_milli_time()
 

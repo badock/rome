@@ -325,6 +325,9 @@ def model_query(context, model,
         raise ValueError(_("Unrecognized read_deleted value '%s'")
                            % read_deleted)
 
+    if read_deleted in ["no", "yes", "only"]:
+        query.read_deleted = read_deleted
+
     # query = sqlalchemyutils.model_query(
     #     model, context.session, args, **query_kwargs)
 
@@ -5105,20 +5108,16 @@ def flavor_get_all(context, inactive=False, filters=None,
         else:
             query = query.filter(the_filter[0])
 
-    marker_row = None
-    if marker is not None:
-        marker_row = _flavor_get_query(context, read_deleted=read_deleted).\
-                    filter_by(flavorid=marker).\
-                    first()
-        if not marker_row:
-            raise exception.MarkerNotFound(marker=marker)
-
-    query = sqlalchemyutils.paginate_query(query, models.InstanceTypes, limit,
-                                           [sort_key, 'id'],
-                                           marker=marker_row,
-                                           sort_dir=sort_dir)
-
     inst_types = query.all()
+
+    if marker is not None:
+        marker_not_found = marker not in map(lambda x: x.id, inst_types) + map(lambda x: x.name, inst_types)
+        if marker_not_found:
+            raise exception.MarkerNotFound(marker=marker)
+        inst_types = filter(lambda x: x.id > marker, inst_types)
+
+    if limit:
+        inst_types = inst_types[0:limit]
 
     return [_dict_with_extra_specs(i) for i in inst_types]
 

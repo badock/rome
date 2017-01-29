@@ -6,11 +6,8 @@ from nova import exception
 import api as db
 from oslo_serialization import jsonutils
 from nova.tests import uuidsentinel
-from nova import test
 from utils import clean_rome_all_databases
-from nova.tests.unit import matchers
 
-import copy
 import context as rome_context
 
 
@@ -123,7 +120,6 @@ def _create_aggregate_with_hosts(context=rome_context.get_admin_context(),
 
 class AggregateDBApiTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
     def setUp(self):
-        from nova import context
         super(AggregateDBApiTestCase, self).setUp()
         self.user_id = 'fake'
         self.project_id = 'fake'
