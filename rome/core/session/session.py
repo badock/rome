@@ -197,7 +197,7 @@ class Session(object):
                 identifier = find_an_identifier(obj)
                 db_current_version = driver.get_object_version_number(obj.__table__.name, identifier)
                 version_number = getattr(obj, "___version_number", None)
-                if db_current_version != -1 and version_number != None and db_current_version != version_number:
+                if db_current_version != -1 and version_number is not None and db_current_version > version_number:
                     success = False
                     break
         # Now, we can commit or abort the modifications
@@ -237,12 +237,16 @@ class Session(object):
     def execute(self, clause, params=None, mapper=None, bind=None, **kw):
         from sqlalchemy.sql.dml import Insert
         from rome.driver.database_driver import get_driver
+        from utils import find_an_identifier_dict
         if type(clause) is Insert:
             database_driver = get_driver()
             for value in params:
-                new_key = database_driver.next_key(clause.table.name)
-                value["id"] = new_key
-                database_driver.put(clause.table.name, new_key, value)
+                key_to_use = find_an_identifier_dict(value, clause.table.primary_key)
+                if key_to_use is None:
+                    next_id = database_driver.next_key(clause.table.name)
+                    key_to_use = next_id
+                value["id"] = key_to_use
+                database_driver.put(clause.table.name, key_to_use, value)
 
     def expire(self, instance, attribute_names=None):
         pass

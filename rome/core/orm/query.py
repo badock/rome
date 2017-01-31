@@ -280,7 +280,7 @@ class Query(object):
         objects = self.all()
         return len(objects)
 
-    def delete(self):
+    def delete(self, synchronize_session='evaluate'):
         from rome.core.session.session import Session
         temporary_session = Session()
         objects = self.matching_objects(filter_deleted=False)
