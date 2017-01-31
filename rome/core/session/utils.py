@@ -99,12 +99,24 @@ def find_associations_attributes(property_pairs):
     return []
 
 
-def find_an_identifier(obj):
+def find_an_identifier(obj, primary_key_components=None):
     if hasattr(obj, "id"):
         identifier = getattr(obj, "id", None)
     else:
-        primary_key_components = obj._sa_class_manager.mapper.primary_key
+        if primary_key_components is None:
+            primary_key_components = obj._sa_class_manager.mapper.primary_key
         primary_key_parts = map(lambda x: "%s" % (getattr(obj, x.name)), primary_key_components)
+        if None in primary_key_parts:
+            return None
+        identifier = "_".join(primary_key_parts)
+    return identifier
+
+
+def find_an_identifier_dict(obj, primary_key_components):
+    if "id" in obj:
+        identifier = obj["id"]
+    else:
+        primary_key_parts = map(lambda x: "%s" % (obj[x.name]) if x.name in obj else None, primary_key_components)
         if None in primary_key_parts:
             return None
         identifier = "_".join(primary_key_parts)
@@ -323,14 +335,19 @@ class ObjectSaver(object):
 
         tablename = str(obj.__table__.name)
 
-        if hasattr(obj, "id"):
-            if "id" not in obj_as_dict or obj_as_dict["id"] is None:
-                next_id = database_driver.get_driver().next_key(tablename)
-                key_to_use = next_id
-            else:
-                key_to_use = obj.id
-        else:
-            key_to_use = find_an_identifier(obj)
+        key_to_use = find_an_identifier(obj)
+        if key_to_use is None:
+            next_id = database_driver.get_driver().next_key(tablename)
+            key_to_use = next_id
+
+        # if hasattr(obj, "id"):
+        #     if "id" not in obj_as_dict or obj_as_dict["id"] is None:
+        #         next_id = database_driver.get_driver().next_key(tablename)
+        #         key_to_use = next_id
+        #     else:
+        #         key_to_use = obj.id
+        # else:
+        #     key_to_use = find_an_identifier(obj)
 
         obj_as_dict["id"] = key_to_use
 
@@ -359,14 +376,19 @@ class ObjectSaver(object):
 
         tablename = obj.__table__.name
 
-        if hasattr(obj, "id"):
-            if "id" not in obj_as_dict or obj_as_dict["id"] is None:
-                next_id = database_driver.get_driver().next_key(tablename)
-                key_to_use = next_id
-            else:
-                key_to_use = obj.id
-        else:
-            key_to_use = find_an_identifier(obj)
+        key_to_use = find_an_identifier(obj)
+        if key_to_use is None:
+            next_id = database_driver.get_driver().next_key(tablename)
+            key_to_use = next_id
+
+        # if hasattr(obj, "id"):
+        #     if "id" not in obj_as_dict or obj_as_dict["id"] is None:
+        #         next_id = database_driver.get_driver().next_key(tablename)
+        #         key_to_use = next_id
+        #     else:
+        #         key_to_use = obj.id
+        # else:
+        #     key_to_use = find_an_identifier(obj)
 
         obj_as_dict["id"] = key_to_use
 

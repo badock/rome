@@ -2935,11 +2935,12 @@ def instance_info_cache_update(context, instance_uuid, values):
         needs_create = True
 
     try:
-        with get_context_manager(context).writer.savepoint.using(context):
-            if needs_create:
-                info_cache.save(context.session)
-            else:
-                info_cache.update(values)
+        # NOTE(badock): commenting 'savepoint' block
+        # with get_context_manager(context).writer.savepoint.using(context):
+        if needs_create:
+            info_cache.save(context.session)
+        else:
+            info_cache.update(values)
     except db_exc.DBDuplicateEntry:
         # NOTE(sirp): Possible race if two greenthreads attempt to
         # recreate the instance cache entry at the same time. First one
@@ -4343,6 +4344,7 @@ def security_group_create(context, values):
     security_group_ref.rules
     security_group_ref.update(values)
     try:
+        # NOTE(badock): commenting 'savepoint' block
         # with get_context_manager(context).writer.savepoint.using(context):
         security_group_ref.save(context.session)
     except db_exc.DBDuplicateEntry:
@@ -5283,19 +5285,21 @@ def flavor_extra_specs_update_or_create(context, flavor_id, specs,
             for spec_ref in spec_refs:
                 key = spec_ref["key"]
                 existing_keys.add(key)
-                with get_context_manager(context).writer.savepoint.using(
-                        context):
-                    spec_ref.update({"value": specs[key]})
+                # NOTE(badock): commenting 'savepoint' block
+                # with get_context_manager(context).writer.savepoint.using(
+                #         context):
+                spec_ref.update({"value": specs[key]})
 
             for key, value in specs.items():
                 if key in existing_keys:
                     continue
                 spec_ref = models.InstanceTypeExtraSpecs()
-                with get_context_manager(context).writer.savepoint.using(
-                        context):
-                    spec_ref.update({"key": key, "value": value,
-                                     "instance_type_id": instance_type_id})
-                    context.session.add(spec_ref)
+                # NOTE(badock): commenting 'savepoint' block
+                # with get_context_manager(context).writer.savepoint.using(
+                #         context):
+                spec_ref.update({"key": key, "value": value,
+                                 "instance_type_id": instance_type_id})
+                context.session.add(spec_ref)
 
             return specs
         except db_exc.DBDuplicateEntry:
@@ -6903,8 +6907,9 @@ def instance_tag_add(context, instance_uuid, tag):
 
     try:
         _check_instance_exists_in_project(context, instance_uuid)
-        with get_context_manager(context).writer.savepoint.using(context):
-            context.session.add(tag_ref)
+        # NOTE(badock): commenting 'savepoint' block
+        # with get_context_manager(context).writer.savepoint.using(context):
+        context.session.add(tag_ref)
     except db_exc.DBDuplicateEntry:
         # NOTE(snikitin): We should ignore tags duplicates
         pass
@@ -6916,7 +6921,7 @@ def instance_tag_add(context, instance_uuid, tag):
 def instance_tag_set(context, instance_uuid, tags):
     _check_instance_exists_in_project(context, instance_uuid)
 
-    existing = context.session.query(models.Tag.tag).filter_by(
+    existing = context.session.query(models.Tag).filter_by(
         resource_id=instance_uuid).all()
 
     existing = set(row.tag for row in existing)
