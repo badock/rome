@@ -5125,8 +5125,9 @@ def flavor_get_all(context, inactive=False, filters=None,
 
 
 def _flavor_get_id_from_flavor_query(context, flavor_id):
+    # NOTE(badock): removed "(models.InstanceTypes.id,)" from the arguments of
+    # the following query
     return model_query(context, models.InstanceTypes,
-                       (models.InstanceTypes.id,),
                        read_deleted="no").\
                 filter_by(flavorid=flavor_id)
 
@@ -5135,7 +5136,7 @@ def _flavor_get_id_from_flavor(context, flavor_id):
     result = _flavor_get_id_from_flavor_query(context, flavor_id).first()
     if not result:
         raise exception.FlavorNotFound(flavor_id=flavor_id)
-    return result[0]
+    return result.id
 
 
 @require_context
@@ -5201,11 +5202,14 @@ def _flavor_access_query(context):
 @pick_context_manager_reader
 def flavor_access_get_by_flavor_id(context, flavor_id):
     """Get flavor access list by flavor id."""
-    instance_type_id_subq = _flavor_get_id_from_flavor_query(context,
-                                                             flavor_id)
-    access_refs = _flavor_access_query(context).\
-                        filter_by(instance_type_id=instance_type_id_subq).\
-                        all()
+    # NOTE(badock): the following query is not use anymore
+    instance_type = _flavor_get_id_from_flavor_query(context, flavor_id).first()
+    if instance_type is not None:
+        query = _flavor_access_query(context).\
+                            filter_by(instance_type_id=instance_type.id)
+        access_refs = query.all()
+    else:
+        access_refs = []
     return access_refs
 
 
@@ -5240,12 +5244,12 @@ def flavor_access_remove(context, flavor_id, project_id):
 
 
 def _flavor_extra_specs_get_query(context, flavor_id):
-    instance_type_id_subq = _flavor_get_id_from_flavor_query(context,
-                                                             flavor_id)
+    # NOTE(badock): the following query is not use anymore
+    instance_type= _flavor_get_id_from_flavor_query(context, flavor_id).first()
 
     return model_query(context, models.InstanceTypeExtraSpecs,
                        read_deleted="no").\
-                filter_by(instance_type_id=instance_type_id_subq)
+                filter_by(instance_type_id=instance_type.id)
 
 
 @require_context
@@ -5866,6 +5870,8 @@ def aggregate_metadata_get_by_host(context, host, key=None):
     metadata = collections.defaultdict(set)
     for agg in rows:
         for kv in agg._metadata:
+            if key is not None and kv['key'] != key:
+                continue
             metadata[kv['key']].add(kv['value'])
     return dict(metadata)
 

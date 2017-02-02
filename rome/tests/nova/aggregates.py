@@ -250,64 +250,64 @@ class AggregateDBApiTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
         r1 = db.aggregate_get_by_host(ctxt, 'foo.openstack.org', key='goodkey')
         self.assertEqual([a1['id']], [x['id'] for x in r1])
 
-    # def test_aggregate_metadata_get_by_host(self):
-    #     ctxt = rome_context.get_admin_context()
-    #     values = {'name': 'fake_aggregate2'}
-    #     values2 = {'name': 'fake_aggregate3'}
-    #     _create_aggregate_with_hosts(context=ctxt)
-    #     _create_aggregate_with_hosts(context=ctxt, values=values)
-    #     _create_aggregate_with_hosts(context=ctxt, values=values2,
-    #             hosts=['bar.openstack.org'], metadata={'badkey': 'bad'})
-    #     r1 = db.aggregate_metadata_get_by_host(ctxt, 'foo.openstack.org')
-    #     self.assertEqual(r1['fake_key1'], set(['fake_value1']))
-    #     self.assertNotIn('badkey', r1)
+    def test_aggregate_metadata_get_by_host(self):
+        ctxt = rome_context.get_admin_context()
+        values = {'name': 'fake_aggregate2'}
+        values2 = {'name': 'fake_aggregate3'}
+        _create_aggregate_with_hosts(context=ctxt)
+        _create_aggregate_with_hosts(context=ctxt, values=values)
+        _create_aggregate_with_hosts(context=ctxt, values=values2,
+                hosts=['bar.openstack.org'], metadata={'badkey': 'bad'})
+        r1 = db.aggregate_metadata_get_by_host(ctxt, 'foo.openstack.org')
+        self.assertEqual(r1['fake_key1'], set(['fake_value1']))
+        self.assertNotIn('badkey', r1)
 
-    # def test_aggregate_metadata_get_by_host_with_key(self):
-    #     ctxt = rome_context.get_admin_context()
-    #     values2 = {'name': 'fake_aggregate12'}
-    #     values3 = {'name': 'fake_aggregate23'}
-    #     a2_hosts = ['foo1.openstack.org', 'foo2.openstack.org']
-    #     a2_metadata = {'good': 'value12', 'bad': 'badvalue12'}
-    #     a3_hosts = ['foo2.openstack.org', 'foo3.openstack.org']
-    #     a3_metadata = {'good': 'value23', 'bad': 'badvalue23'}
-    #     _create_aggregate_with_hosts(context=ctxt)
-    #     _create_aggregate_with_hosts(context=ctxt, values=values2,
-    #             hosts=a2_hosts, metadata=a2_metadata)
-    #     a3 = _create_aggregate_with_hosts(context=ctxt, values=values3,
-    #             hosts=a3_hosts, metadata=a3_metadata)
-    #     r1 = db.aggregate_metadata_get_by_host(ctxt, 'foo2.openstack.org',
-    #                                            key='good')
-    #     self.assertEqual(r1['good'], set(['value12', 'value23']))
-    #     self.assertNotIn('fake_key1', r1)
-    #     self.assertNotIn('bad', r1)
-    #     # Delete metadata
-    #     db.aggregate_metadata_delete(ctxt, a3['id'], 'good')
-    #     r2 = db.aggregate_metadata_get_by_host(ctxt, 'foo3.openstack.org',
-    #                                            key='good')
-    #     self.assertNotIn('good', r2)
+    def test_aggregate_metadata_get_by_host_with_key(self):
+        ctxt = rome_context.get_admin_context()
+        values2 = {'name': 'fake_aggregate12'}
+        values3 = {'name': 'fake_aggregate23'}
+        a2_hosts = ['foo1.openstack.org', 'foo2.openstack.org']
+        a2_metadata = {'good': 'value12', 'bad': 'badvalue12'}
+        a3_hosts = ['foo2.openstack.org', 'foo3.openstack.org']
+        a3_metadata = {'good': 'value23', 'bad': 'badvalue23'}
+        _create_aggregate_with_hosts(context=ctxt)
+        _create_aggregate_with_hosts(context=ctxt, values=values2,
+                hosts=a2_hosts, metadata=a2_metadata)
+        a3 = _create_aggregate_with_hosts(context=ctxt, values=values3,
+                hosts=a3_hosts, metadata=a3_metadata)
+        r1 = db.aggregate_metadata_get_by_host(ctxt, 'foo2.openstack.org',
+                                               key='good')
+        self.assertEqual(r1['good'], set(['value12', 'value23']))
+        self.assertNotIn('fake_key1', r1)
+        self.assertNotIn('bad', r1)
+        # Delete metadata
+        db.aggregate_metadata_delete(ctxt, a3['id'], 'good')
+        r2 = db.aggregate_metadata_get_by_host(ctxt, 'foo3.openstack.org',
+                                               key='good')
+        self.assertNotIn('good', r2)
 
     def test_aggregate_get_by_host_not_found(self):
         ctxt = rome_context.get_admin_context()
         _create_aggregate_with_hosts(context=ctxt)
         self.assertEqual([], db.aggregate_get_by_host(ctxt, 'unknown_host'))
 
-    # def test_aggregate_delete_raise_not_found(self):
-    #     ctxt = rome_context.get_admin_context()
-    #     # this does not exist!
-    #     aggregate_id = 1
-    #     self.assertRaises(exception.AggregateNotFound,
-    #                       db.aggregate_delete,
-    #                       ctxt, aggregate_id)
+    def test_aggregate_delete_raise_not_found(self):
+        ctxt = rome_context.get_admin_context()
+        # this does not exist!
+        aggregate_id = 1
+        self.assertRaises(exception.AggregateNotFound,
+                          db.aggregate_delete,
+                          ctxt, aggregate_id)
 
-    # def test_aggregate_delete(self):
-    #     ctxt = rome_context.get_admin_context()
-    #     result = _create_aggregate(context=ctxt, metadata=None)
-    #     db.aggregate_delete(ctxt, result['id'])
-    #     expected = db.aggregate_get_all(ctxt)
-    #     self.assertEqual(0, len(expected))
-    #     aggregate = db.aggregate_get(ctxt.elevated(read_deleted='yes'),
-    #                                  result['id'])
-    #     self.assertEqual(aggregate['deleted'], result['id'])
+    def test_aggregate_delete(self):
+        ctxt = rome_context.get_admin_context()
+        result = _create_aggregate(context=ctxt, metadata=None)
+        db.aggregate_delete(ctxt, result['id'])
+        expected = db.aggregate_get_all(ctxt)
+        self.assertEqual(0, len(expected))
+        aggregate = db.aggregate_get(ctxt.elevated(read_deleted='yes'),
+                                     result['id'])
+        self.assertEqual(aggregate['deleted'], result['id'])
 
     # def test_aggregate_update(self):
     #     ctxt = rome_context.get_admin_context()
