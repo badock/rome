@@ -163,11 +163,25 @@ class ObjectAttributeRefresher(object):
             if attr_value is None:
                 continue
             elements = attr_value if hasattr(attr_value, "__len__") else [attr_value]
-            for element in elements:
-                element_value = getattr(element, right.name, None)
-                obj_attr_value = getattr(obj, left.name, None)
-                if element_value is None or element_value != obj_attr_value:
-                    setattr(element, right.name, obj_attr_value)
+            if len(elements) > 0:
+                for element in elements:
+                    element_value = getattr(element, right.name, None)
+                    obj_attr_value = getattr(obj, left.name, None)
+                    if element_value is None or element_value != obj_attr_value:
+                        setattr(element, right.name, obj_attr_value)
+            else:
+                left_value = getattr(obj, left.name, None)
+                if left_value is None:
+                    continue
+                class_registry = get_class_registry(obj)
+                right_entity = find_entity_class(right.table.name, class_registry)
+                query = self._generate_query(right_entity, right.__eq__(left_value))
+                relationship_field = LazyRelationship(query, right_entity)
+                # NOTE(badock): the following line is not lazy :-(
+                try:
+                    obj.__dict__[attr_name] += list(relationship_field)
+                except:
+                    logging.info("An error occurred when setting a relationship field (one_to_many)")
         return True
 
     def _generate_query(self, entity_class, additional_expression):
