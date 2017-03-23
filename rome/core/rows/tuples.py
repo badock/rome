@@ -395,8 +395,19 @@ def sql_panda_building_tuples(query_tree,
         ):
             attribute_name = selected_attributes_corrected[attribute_index]
             original_attribute_name = query_tree.attributes[attribute_index]
-            function = getattr(filtered_result[attribute_name], function_name)
+
+            if attribute_name in filtered_result:
+                dataset = filtered_result[attribute_name]
+            else:
+                entity_target = original_attribute_name.split(".")[0]
+                attribute_target = original_attribute_name.split(".")[1]
+
+                data = map(lambda x: x[entity_target][attribute_target], rows)
+                dataset = pd.DataFrame(data=data, columns=["column"])["column"]
+
+            function = getattr(dataset, function_name)
             value = function()
+
             row_key = "%s(%s)" % (function_name, original_attribute_name)
             row[row_key] = value
         return [row]

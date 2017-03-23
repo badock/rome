@@ -150,14 +150,16 @@ def recursive_getattr(obj, key, default=None):
 
 class ObjectAttributeRefresher(object):
 
-    def refresh_one_to_many(self, obj, attr_name, attr):
+    def refresh_one_to_many(self, obj, attr_name, attr, recursive_call=False):
         """
         Refresh a one-to-many relationship of a python object.
         :param obj: a python object
         :param attr_name: name of the relationship field
         :param attr: relationship object
+        :param attr: a boolean which is True if the current call is a recursive call
         :return: a boolean which is True if the refresh worked
         """
+        has_been_modified = False
         for left, right in attr.property.local_remote_pairs:
             attr_value = getattr(obj, attr_name, None)
             if attr_value is None:
@@ -169,6 +171,12 @@ class ObjectAttributeRefresher(object):
                     obj_attr_value = getattr(obj, left.name, None)
                     if element_value is None or element_value != obj_attr_value:
                         setattr(element, right.name, obj_attr_value)
+                        # The previous modification should be set in the DB.
+                        from rome.core.session.session import Session
+                        tmp_session = Session()
+                        tmp_session.add(element)
+                        tmp_session.flush()
+                        has_been_modified = True
             else:
                 left_value = getattr(obj, left.name, None)
                 if left_value is None:
@@ -178,11 +186,20 @@ class ObjectAttributeRefresher(object):
                 query = self._generate_query(right_entity, right.__eq__(left_value))
                 relationship_field = LazyRelationship(query, right_entity)
                 # NOTE(badock): the following line is not lazy :-(
+                value = list(relationship_field)
+                if len(value) == 0 and len(obj.__dict__[attr_name]) == 0:
+                    continue
                 try:
-                    obj.__dict__[attr_name] += list(relationship_field)
+                    obj.__dict__[attr_name] = value
                 except:
+                    import traceback
+                    traceback.print_exc()
                     logging.info("An error occurred when setting a relationship field (one_to_many)")
-        return True
+        if has_been_modified:
+            if not recursive_call:
+                return self.refresh_one_to_many(obj, attr_name, attr, recursive_call=True)
+        else:
+            return True
 
     def _generate_query(self, entity_class, additional_expression):
         query = Query(entity_class).filter(additional_expression)
@@ -285,14 +302,40 @@ class ObjectAttributeRefresher(object):
             tmp_session.flush()
         return True
 
-    def refresh(self, obj):
+    def _extract_load_and_noload_attributes(self, options):
+        def _extract_attributes_from_options(options):
+            attrs = []
+            for option in options:
+                for element in option.path:
+                    attrs += [getattr(element, "key", element)]
+            return attrs
+        no_load_options = filter(lambda x: "noload" in x.strategy[0], options)
+        load_options = filter(lambda x: "noload" not in x.strategy[0], options)
+        load_attrs = _extract_attributes_from_options(load_options)
+        no_load_attrs = _extract_attributes_from_options(no_load_options)
+        return (load_attrs, no_load_attrs)
+
+    def refresh(self, obj, load_options=None):
         """
         Refresh relationships objects according to foreign keys (and vice versa).
         :param obj: a python object
+        :param obj: a list of load options for relationships
         :return: a boolean which is True if the object has been successfully refreshed
         """
+        if load_options is None:
+            load_options = []
+        (load_attrs, no_load_attrs) = ([], [])
+        if len(load_options) > 0:
+            (load_attrs, no_load_attrs) = self._extract_load_and_noload_attributes(load_options)
         for attr_name, attr in get_class_manager(obj).local_attrs.iteritems():
             if type(attr.property) is RelationshipProperty:
+                if len(load_attrs) == 0 and len(no_load_attrs) == 0:
+                    pass
+                else:
+                    if attr_name in no_load_attrs:
+                        continue
+                    # if attr_name not in load_attrs:
+                    #     continue
                 if attr.property.direction is ONETOMANY:
                     self.refresh_one_to_many(obj, attr_name, attr)
                 elif attr.property.direction is MANYTOONE:
@@ -343,7 +386,7 @@ class ObjectSaver(object):
         """
         extractor = ObjectExtractor()
         attribute_refresher = ObjectAttributeRefresher()
-        # json_encoder = Encoder()
+
         attribute_refresher.refresh(obj)
         obj_as_dict = extractor.extract(obj)
 
@@ -353,15 +396,6 @@ class ObjectSaver(object):
         if key_to_use is None:
             next_id = database_driver.get_driver().next_key(tablename)
             key_to_use = next_id
-
-        # if hasattr(obj, "id"):
-        #     if "id" not in obj_as_dict or obj_as_dict["id"] is None:
-        #         next_id = database_driver.get_driver().next_key(tablename)
-        #         key_to_use = next_id
-        #     else:
-        #         key_to_use = obj.id
-        # else:
-        #     key_to_use = find_an_identifier(obj)
 
         obj_as_dict["id"] = key_to_use
 
@@ -384,7 +418,7 @@ class ObjectSaver(object):
         """
         extractor = ObjectExtractor()
         attribute_refresher = ObjectAttributeRefresher()
-        # json_encoder = Encoder()
+
         attribute_refresher.refresh(obj)
         obj_as_dict = extractor.extract(obj)
 
@@ -394,15 +428,6 @@ class ObjectSaver(object):
         if key_to_use is None:
             next_id = database_driver.get_driver().next_key(tablename)
             key_to_use = next_id
-
-        # if hasattr(obj, "id"):
-        #     if "id" not in obj_as_dict or obj_as_dict["id"] is None:
-        #         next_id = database_driver.get_driver().next_key(tablename)
-        #         key_to_use = next_id
-        #     else:
-        #         key_to_use = obj.id
-        # else:
-        #     key_to_use = find_an_identifier(obj)
 
         obj_as_dict["id"] = key_to_use
 

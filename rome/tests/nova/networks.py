@@ -300,20 +300,15 @@ class NetworkTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
         net2 = db.network_create_safe(self.ctxt, {})
         db.fixed_ip_create(self.ctxt, {'host': host, 'network_id': net2.id})
         db.network_get_all_by_host(self.ctxt, host)
-        query = Query(FixedIp).\
-            outerjoin((Instance,
-                       Instance.uuid ==
-                       FixedIp.instance_uuid))
-        foos = query.all()
         self._assertEqualListsOfObjects([net1, net2],
-            db.network_get_all_by_host(self.ctxt, host))
+            db.network_get_all_by_host(self.ctxt, host), ignored_keys="fixed_ips")
         # network with instance with host set
         net3 = db.network_create_safe(self.ctxt, {})
         instance = db.instance_create(self.ctxt, {'host': host})
         db.fixed_ip_create(self.ctxt, {'network_id': net3.id,
             'instance_uuid': instance.uuid})
         self._assertEqualListsOfObjects([net1, net2, net3],
-            db.network_get_all_by_host(self.ctxt, host))
+            db.network_get_all_by_host(self.ctxt, host), ignored_keys="fixed_ips")
 
     def test_network_get_by_cidr(self):
         cidr = '192.0.2.0/30'

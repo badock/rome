@@ -132,6 +132,9 @@ class SecurityGroupRuleTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
     #     self._test_security_group_rule_get_by_security_group(columns=[])
 
     def test_security_group_rule_get_by_instance(self):
+        from rome.driver.database_driver import get_driver
+        driver = get_driver()
+
         instance = db.instance_create(self.ctxt, {})
         security_group = self._create_security_group({
                 'instances': [instance]})
