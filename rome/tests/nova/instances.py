@@ -200,26 +200,29 @@ class InstanceTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
         for key in dt_keys:
             self.assertEqual(inst[key], dt)
 
-    # def test_instance_update_no_metadata_clobber(self):
-    #     meta = {'foo': 'bar'}
-    #     sys_meta = {'sfoo': 'sbar'}
-    #     values = {
-    #         'metadata': meta,
-    #         'system_metadata': sys_meta,
-    #         }
-    #     inst = db.instance_create(self.ctxt, {})
-    #     inst = db.instance_update(self.ctxt, inst['uuid'], values)
-    #     self.assertEqual(meta, utils.metadata_to_dict(inst['metadata']))
-    #     self.assertEqual(sys_meta,
-    #                      utils.metadata_to_dict(inst['system_metadata']))
+    def test_instance_update_no_metadata_clobber(self):
+        meta = {'foo': 'bar'}
+        sys_meta = {'sfoo': 'sbar'}
+        values = {
+            'metadata': meta,
+            'system_metadata': sys_meta,
+            }
+        inst = db.instance_create(self.ctxt, {})
+        inst = db.instance_update(self.ctxt, inst['uuid'], values)
+        self.assertEqual(meta, utils.metadata_to_dict(inst['metadata']))
+        self.assertEqual(sys_meta,
+                         utils.metadata_to_dict(inst['system_metadata']))
 
-    # def test_instance_get_all_with_meta(self):
-    #     self.create_instance_with_args()
-    #     for inst in db.instance_get_all(self.ctxt):
-    #         meta = utils.metadata_to_dict(inst['metadata'])
-    #         self.assertEqual(meta, self.sample_data['metadata'])
-    #         sys_meta = utils.metadata_to_dict(inst['system_metadata'])
-    #         self.assertEqual(sys_meta, self.sample_data['system_metadata'])
+    def test_instance_get_all_with_meta(self):
+        from rome.driver.database_driver import get_driver
+        driver = get_driver()
+
+        self.create_instance_with_args()
+        for inst in db.instance_get_all(self.ctxt):
+            meta = utils.metadata_to_dict(inst['metadata'])
+            self.assertEqual(meta, self.sample_data['metadata'])
+            sys_meta = utils.metadata_to_dict(inst['system_metadata'])
+            self.assertEqual(sys_meta, self.sample_data['system_metadata'])
 
     def test_instance_update(self):
         instance = self.create_instance_with_args()
@@ -686,13 +689,16 @@ class InstanceTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
         db.instance_update(self.ctxt, instance['uuid'], {'host': 'h1',
                                        'expected_vm_state': ('foo', 'bar')})
 
-    # def test_instance_update_with_unexpected_vm_state(self):
-    #     instance = self.create_instance_with_args(vm_state='foo')
-    #     self.assertRaises(exception.InstanceUpdateConflict,
-    #                 db.instance_update, self.ctxt, instance['uuid'],
-    #                 {'host': 'h1', 'expected_vm_state': ('spam', 'bar')})
+    def test_instance_update_with_unexpected_vm_state(self):
+        instance = self.create_instance_with_args(vm_state='foo')
+        self.assertRaises(exception.InstanceUpdateConflict,
+                    db.instance_update, self.ctxt, instance['uuid'],
+                    {'host': 'h1', 'expected_vm_state': ('spam', 'bar')})
 
     def test_instance_update_with_instance_uuid(self):
+        from rome.driver.database_driver import get_driver
+        driver = get_driver()
+
         # test instance_update() works when an instance UUID is passed.
         ctxt = rome_context.get_admin_context()
 
@@ -789,26 +795,26 @@ class InstanceTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
     #                      db.instance_group_members_get(ctxt,
     #                                                    group['uuid']))
 
-    # def test_delete_migrations_on_instance_destroy(self):
-    #     ctxt = rome_context.get_admin_context()
-    #     uuid = uuidsentinel.uuid1
-    #     db.instance_create(ctxt, {'uuid': uuid})
-    #
-    #     migrations_values = {'instance_uuid': uuid}
-    #     migration = db.migration_create(ctxt, migrations_values)
-    #
-    #     migrations = db.migration_get_all_by_filters(
-    #         ctxt, {'instance_uuid': uuid})
-    #
-    #     self.assertEqual(1, len(migrations))
-    #     self._assertEqualObjects(migration, migrations[0])
-    #
-    #     instance = db.instance_destroy(ctxt, uuid)
-    #     migrations = db.migration_get_all_by_filters(
-    #         ctxt, {'instance_uuid': uuid})
-    #
-    #     self.assertTrue(instance.deleted)
-    #     self.assertEqual(0, len(migrations))
+    def test_delete_migrations_on_instance_destroy(self):
+        ctxt = rome_context.get_admin_context()
+        uuid = uuidsentinel.uuid1
+        db.instance_create(ctxt, {'uuid': uuid})
+
+        migrations_values = {'instance_uuid': uuid}
+        migration = db.migration_create(ctxt, migrations_values)
+
+        migrations = db.migration_get_all_by_filters(
+            ctxt, {'instance_uuid': uuid})
+
+        self.assertEqual(1, len(migrations))
+        self._assertEqualObjects(migration, migrations[0])
+
+        instance = db.instance_destroy(ctxt, uuid)
+        migrations = db.migration_get_all_by_filters(
+            ctxt, {'instance_uuid': uuid})
+
+        self.assertTrue(instance.deleted)
+        self.assertEqual(0, len(migrations))
 
     def test_instance_update_and_get_original(self):
         instance = self.create_instance_with_args(vm_state='building')
@@ -908,21 +914,21 @@ class InstanceTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
 
         self.assertIsNone(new['host'])
 
-    # def test_instance_update_and_get_original_expected_host_fail(self):
-    #     # Ensure that we detect a changed expected host and raise
-    #     # InstanceUpdateConflict
-    #     instance = self.create_instance_with_args()
-    #
-    #     try:
-    #         db.instance_update_and_get_original(
-    #             self.ctxt, instance['uuid'], {'host': None},
-    #             expected={'host': 'h2'})
-    #     except exception.InstanceUpdateConflict as ex:
-    #         self.assertEqual(ex.kwargs['instance_uuid'], instance['uuid'])
-    #         self.assertEqual(ex.kwargs['actual'], {'host': 'h1'})
-    #         self.assertEqual(ex.kwargs['expected'], {'host': ['h2']})
-    #     else:
-    #         self.fail('InstanceUpdateConflict was not raised')
+    def test_instance_update_and_get_original_expected_host_fail(self):
+        # Ensure that we detect a changed expected host and raise
+        # InstanceUpdateConflict
+        instance = self.create_instance_with_args()
+
+        try:
+            db.instance_update_and_get_original(
+                self.ctxt, instance['uuid'], {'host': None},
+                expected={'host': 'h2'})
+        except exception.InstanceUpdateConflict as ex:
+            self.assertEqual(ex.kwargs['instance_uuid'], instance['uuid'])
+            self.assertEqual(ex.kwargs['actual'], {'host': 'h1'})
+            self.assertEqual(ex.kwargs['expected'], {'host': ['h2']})
+        else:
+            self.fail('InstanceUpdateConflict was not raised')
 
     def test_instance_update_and_get_original_expected_host_none(self):
         # Ensure that we allow update when expecting a host field of None
@@ -933,40 +939,40 @@ class InstanceTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
             expected={'host': None})
         self.assertEqual('h1', new['host'])
 
-    # def test_instance_update_and_get_original_expected_host_none_fail(self):
-    #     # Ensure that we detect a changed expected host of None and raise
-    #     # InstanceUpdateConflict
-    #     instance = self.create_instance_with_args()
-    #
-    #     try:
-    #         db.instance_update_and_get_original(
-    #             self.ctxt, instance['uuid'], {'host': None},
-    #             expected={'host': None})
-    #     except exception.InstanceUpdateConflict as ex:
-    #         self.assertEqual(ex.kwargs['instance_uuid'], instance['uuid'])
-    #         self.assertEqual(ex.kwargs['actual'], {'host': 'h1'})
-    #         self.assertEqual(ex.kwargs['expected'], {'host': [None]})
-    #     else:
-    #         self.fail('InstanceUpdateConflict was not raised')
+    def test_instance_update_and_get_original_expected_host_none_fail(self):
+        # Ensure that we detect a changed expected host of None and raise
+        # InstanceUpdateConflict
+        instance = self.create_instance_with_args()
 
-    # def test_instance_update_and_get_original_expected_task_state_single_fail(self):  # noqa
-    #     # Ensure that we detect a changed expected task and raise
-    #     # UnexpectedTaskStateError
-    #     instance = self.create_instance_with_args()
-    #
-    #     try:
-    #         db.instance_update_and_get_original(
-    #             self.ctxt, instance['uuid'], {
-    #                 'host': None,
-    #                 'expected_task_state': task_states.SCHEDULING
-    #             })
-    #     except exception.UnexpectedTaskStateError as ex:
-    #         self.assertEqual(ex.kwargs['instance_uuid'], instance['uuid'])
-    #         self.assertEqual(ex.kwargs['actual'], {'task_state': None})
-    #         self.assertEqual(ex.kwargs['expected'],
-    #                          {'task_state': [task_states.SCHEDULING]})
-    #     else:
-    #         self.fail('UnexpectedTaskStateError was not raised')
+        try:
+            db.instance_update_and_get_original(
+                self.ctxt, instance['uuid'], {'host': None},
+                expected={'host': None})
+        except exception.InstanceUpdateConflict as ex:
+            self.assertEqual(ex.kwargs['instance_uuid'], instance['uuid'])
+            self.assertEqual(ex.kwargs['actual'], {'host': 'h1'})
+            self.assertEqual(ex.kwargs['expected'], {'host': [None]})
+        else:
+            self.fail('InstanceUpdateConflict was not raised')
+
+    def test_instance_update_and_get_original_expected_task_state_single_fail(self):  # noqa
+        # Ensure that we detect a changed expected task and raise
+        # UnexpectedTaskStateError
+        instance = self.create_instance_with_args()
+
+        try:
+            db.instance_update_and_get_original(
+                self.ctxt, instance['uuid'], {
+                    'host': None,
+                    'expected_task_state': task_states.SCHEDULING
+                })
+        except exception.UnexpectedTaskStateError as ex:
+            self.assertEqual(ex.kwargs['instance_uuid'], instance['uuid'])
+            self.assertEqual(ex.kwargs['actual'], {'task_state': None})
+            self.assertEqual(ex.kwargs['expected'],
+                             {'task_state': [task_states.SCHEDULING]})
+        else:
+            self.fail('UnexpectedTaskStateError was not raised')
 
     def test_instance_update_and_get_original_expected_task_state_single_pass(self):  # noqa
         # Ensure that we allow an update when expected task is correct
@@ -979,27 +985,27 @@ class InstanceTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
             })
         self.assertIsNone(new['host'])
 
-    # def test_instance_update_and_get_original_expected_task_state_multi_fail(self):  # noqa
-    #     # Ensure that we detect a changed expected task and raise
-    #     # UnexpectedTaskStateError when there are multiple potential expected
-    #     # tasks
-    #     instance = self.create_instance_with_args()
-    #
-    #     try:
-    #         db.instance_update_and_get_original(
-    #             self.ctxt, instance['uuid'], {
-    #                 'host': None,
-    #                 'expected_task_state': [task_states.SCHEDULING,
-    #                                         task_states.REBUILDING]
-    #             })
-    #     except exception.UnexpectedTaskStateError as ex:
-    #         self.assertEqual(ex.kwargs['instance_uuid'], instance['uuid'])
-    #         self.assertEqual(ex.kwargs['actual'], {'task_state': None})
-    #         self.assertEqual(ex.kwargs['expected'],
-    #                          {'task_state': [task_states.SCHEDULING,
-    #                                           task_states.REBUILDING]})
-    #     else:
-    #         self.fail('UnexpectedTaskStateError was not raised')
+    def test_instance_update_and_get_original_expected_task_state_multi_fail(self):  # noqa
+        # Ensure that we detect a changed expected task and raise
+        # UnexpectedTaskStateError when there are multiple potential expected
+        # tasks
+        instance = self.create_instance_with_args()
+
+        try:
+            db.instance_update_and_get_original(
+                self.ctxt, instance['uuid'], {
+                    'host': None,
+                    'expected_task_state': [task_states.SCHEDULING,
+                                            task_states.REBUILDING]
+                })
+        except exception.UnexpectedTaskStateError as ex:
+            self.assertEqual(ex.kwargs['instance_uuid'], instance['uuid'])
+            self.assertEqual(ex.kwargs['actual'], {'task_state': None})
+            self.assertEqual(ex.kwargs['expected'],
+                             {'task_state': [task_states.SCHEDULING,
+                                              task_states.REBUILDING]})
+        else:
+            self.fail('UnexpectedTaskStateError was not raised')
 
     def test_instance_update_and_get_original_expected_task_state_multi_pass(self):  # noqa
         # Ensure that we allow an update when expected task is in a list of
@@ -1013,26 +1019,26 @@ class InstanceTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
             })
         self.assertIsNone(new['host'])
 
-    # def test_instance_update_and_get_original_expected_task_state_deleting(self):  # noqa
-    #     # Ensure that we raise UnepectedDeletingTaskStateError when task state
-    #     # is not as expected, and it is DELETING
-    #     instance = self.create_instance_with_args(
-    #         task_state=task_states.DELETING)
-    #
-    #     try:
-    #         db.instance_update_and_get_original(
-    #             self.ctxt, instance['uuid'], {
-    #                 'host': None,
-    #                 'expected_task_state': task_states.SCHEDULING
-    #             })
-    #     except exception.UnexpectedDeletingTaskStateError as ex:
-    #         self.assertEqual(ex.kwargs['instance_uuid'], instance['uuid'])
-    #         self.assertEqual(ex.kwargs['actual'],
-    #                          {'task_state': task_states.DELETING})
-    #         self.assertEqual(ex.kwargs['expected'],
-    #                          {'task_state': [task_states.SCHEDULING]})
-    #     else:
-    #         self.fail('UnexpectedDeletingTaskStateError was not raised')
+    def test_instance_update_and_get_original_expected_task_state_deleting(self):  # noqa
+        # Ensure that we raise UnepectedDeletingTaskStateError when task state
+        # is not as expected, and it is DELETING
+        instance = self.create_instance_with_args(
+            task_state=task_states.DELETING)
+
+        try:
+            db.instance_update_and_get_original(
+                self.ctxt, instance['uuid'], {
+                    'host': None,
+                    'expected_task_state': task_states.SCHEDULING
+                })
+        except exception.UnexpectedDeletingTaskStateError as ex:
+            self.assertEqual(ex.kwargs['instance_uuid'], instance['uuid'])
+            self.assertEqual(ex.kwargs['actual'],
+                             {'task_state': task_states.DELETING})
+            self.assertEqual(ex.kwargs['expected'],
+                             {'task_state': [task_states.SCHEDULING]})
+        else:
+            self.fail('UnexpectedDeletingTaskStateError was not raised')
 
     # def test_instance_update_unique_name(self):
     #     # context1 = context.RequestContext('user1', 'p1')
@@ -1100,13 +1106,13 @@ class InstanceTestCase(unittest.TestCase, ModelsObjectComparatorMixin):
     def test_security_group_in_use(self):
         db.instance_create(self.ctxt, dict(host='foo'))
 
-    # def test_instance_update_updates_system_metadata(self):
-    #     # Ensure that system_metadata is updated during instance_update
-    #     self._test_instance_update_updates_metadata('system_metadata')
+    def test_instance_update_updates_system_metadata(self):
+        # Ensure that system_metadata is updated during instance_update
+        self._test_instance_update_updates_metadata('system_metadata')
 
-    # def test_instance_update_updates_metadata(self):
-    #     # Ensure that metadata is updated during instance_update
-    #     self._test_instance_update_updates_metadata('metadata')
+    def test_instance_update_updates_metadata(self):
+        # Ensure that metadata is updated during instance_update
+        self._test_instance_update_updates_metadata('metadata')
 
     # def test_instance_floating_address_get_all(self):
     #     ctxt = rome_context.get_admin_context()

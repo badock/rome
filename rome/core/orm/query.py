@@ -204,7 +204,10 @@ class Query(object):
                     if "___version_number" in row[row_key]:
                         setattr(new_object, "___version_number", row[row_key]["___version_number"])
 
-                    object_attribute_refresher.refresh(new_object)
+                    load_options = None
+                    if hasattr(self.sa_query, "_with_options"):
+                        load_options = self.sa_query._with_options
+                    object_attribute_refresher.refresh(new_object, load_options=load_options)
                     final_row += [new_object]
                 else:
                     logging.error("Unsupported type: '%s'" %
@@ -319,15 +322,30 @@ class Query(object):
         for matching_object in matching_objects:
             matching = False
             if matching_object[surrogate_key] == specimen[surrogate_key]:
-                    matching = True
+                matching = True
             if matching:
+                # Check if the matching object has conflicts with the specimen object
+                for k, v in specimen.__dict__.iteritems():
+                    if k not in ["_sa_instance_state"]:
+                        matching_value = matching_object[k]
+                        if type(matching_value) is not list:
+                            matching_value = [matching_value]
+                        specimen_value = specimen[k]
+                        if type(specimen_value) is not list:
+                            specimen_value = [specimen_value]
+                        if matching_value != specimen_value:
+                            matching = False
+                if not matching:
+                    continue
                 session = self.session
                 for k, v in values.iteritems():
                     matching_object[k] = v
                 session.add(matching_object)
                 session.flush()
                 return matching_object
-        return None
+        from oslo_db.sqlalchemy.update_match import NoRowsMatched
+        raise NoRowsMatched()
+        # return None
 
     def one(self):
         matching_objects = self.matching_objects(filter_deleted=False)

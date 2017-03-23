@@ -1357,6 +1357,10 @@ def fixed_ip_associate_pool(context, network_id, instance_uuid=None,
 @require_context
 @pick_context_manager_writer
 def fixed_ip_create(context, values):
+    if "address" in values:
+        fixed_ips_with_same_address_count = model_query(context, models.FixedIp).filter_by(address=values["address"]).count()
+        if fixed_ips_with_same_address_count > 0:
+            raise exception.FixedIpExists(address=values['address'])
     fixed_ip_ref = models.FixedIp()
     fixed_ip_ref.update(values)
     try:
@@ -1379,9 +1383,19 @@ def fixed_ip_bulk_create(context, ips):
 @require_context
 @pick_context_manager_writer
 def fixed_ip_disassociate(context, address):
-    _fixed_ip_get_by_address(context, address).update(
+    # Note(badock): modifiying the body of this function
+    fixed_ip = _fixed_ip_get_by_address(context, address)
+    if fixed_ip:
+        # MonkeyPatching the CollectionAdapter to prevent error caused by calls to "remove_with_event".
+        from sqlalchemy.orm.collections import CollectionAdapter
+        CollectionAdapter.remove_with_event = lambda x, item, initiator=None: None
+        fixed_ip.update(
         {'instance_uuid': None,
+         'instance': None,
+         'virtual_interface': None,
          'virtual_interface_id': None})
+        context.session.add(fixed_ip)
+        context.session.flush()
 
 
 @pick_context_manager_writer
@@ -1826,6 +1840,10 @@ def instance_create(context, values):
     # create the instance uuid to ec2_id mapping entry for instance
     ec2_instance_create(context, instance_ref['uuid'])
 
+    # Note(badock): reload the instance_ref
+    instance_ref = model_query(context, models.Instance, read_deleted="yes"). \
+        filter_by(id=instance_ref.id).first()
+
     return instance_ref
 
 
@@ -1840,7 +1858,8 @@ def _instance_data_get_for_user(context, project_id, user_id):
     else:
         result = result.first()
     # NOTE(vish): convert None to 0
-    return (result[0] or 0, result[1] or 0, result[2] or 0)
+    # NOTE(badock): update index to match with Rome's Queries.
+    return (result[1] or 0, result[2] or 0, result[3] or 0)
 
 
 @require_context
@@ -1892,6 +1911,10 @@ def instance_destroy(context, instance_uuid, constraint=None):
         resource_id=instance_uuid).delete()
     context.session.query(models.ConsoleAuthToken).filter_by(
         instance_uuid=instance_uuid).delete()
+
+    # Note(badock): reload the instance_ref
+    instance_ref = model_query(context, models.Instance, read_deleted="yes"). \
+        filter_by(id=instance_ref.id).first()
 
     return instance_ref
 
@@ -2736,6 +2759,8 @@ def _instance_metadata_update_in_place(context, instance, metadata_type, model,
         key = keyvalue['key']
         if key in metadata:
             keyvalue['value'] = metadata.pop(key)
+            # Note(badock): add the following line to save modified metadata
+            context.session.add(keyvalue)
         elif key not in metadata:
             to_delete.append(keyvalue)
 
@@ -3408,13 +3433,11 @@ def quota_get(context, project_id, resource, user_id=None):
 @require_context
 @pick_context_manager_reader
 def quota_get_all_by_project_and_user(context, project_id, user_id):
-    user_quotas = model_query(context, models.ProjectUserQuota,
-                              (models.ProjectUserQuota.resource,
-                               models.ProjectUserQuota.hard_limit)).\
+    # Note(badock): modified the following query (attribute selection).
+    user_quotas = model_query(context, models.ProjectUserQuota).\
                    filter_by(project_id=project_id).\
                    filter_by(user_id=user_id).\
                    all()
-
     result = {'project_id': project_id, 'user_id': user_id}
     for user_quota in user_quotas:
         result[user_quota.resource] = user_quota.hard_limit
@@ -3453,6 +3476,9 @@ def quota_get_per_project_resources():
 @pick_context_manager_writer
 def quota_create(context, project_id, resource, limit, user_id=None):
     per_user = user_id and resource not in PER_PROJECT_QUOTAS
+    existing_quotas_count = model_query(context, models.ProjectUserQuota if per_user else models.Quota).filter_by(project_id=project_id).filter_by(resource=resource).count()
+    if existing_quotas_count > 0:
+        raise exception.QuotaExists(project_id=project_id, resource=resource)
     quota_ref = models.ProjectUserQuota() if per_user else models.Quota()
     if per_user:
         quota_ref.user_id = user_id
@@ -3510,7 +3536,7 @@ def quota_class_get_default(context):
 
     result = {'class_name': _DEFAULT_QUOTA_NAME}
     for row in rows:
-        result[row.resource] = row.hard_limit
+        result[row.resource] = int(row.hard_limit)
 
     return result
 
@@ -6980,7 +7006,7 @@ def instance_tag_exists(context, instance_uuid, tag):
     _check_instance_exists_in_project(context, instance_uuid)
     q = context.session.query(models.Tag).filter_by(
         resource_id=instance_uuid, tag=tag)
-    return context.session.query(q.exists()).scalar()
+    return q.count() > 0
 
 
 ####################

@@ -4,6 +4,10 @@ import unittest
 # from models import *
 from nova import exception
 import api as db
+import mock
+from nova import objects
+from nova.objects.instance import Instance as NovaInstance
+from oslo_db import exception as db_exc
 # from oslo_serialization import jsonutils
 # from nova.tests import uuidsentinel
 # from nova import test
@@ -194,7 +198,7 @@ class FixedIPTestCase(BaseInstanceTypeTestCase):
                   'fixed_ip_id': fixed_ip['id']}
         floating = db.floating_ip_create(self.ctxt, values)['address']
         fixed_ip_ref = db.fixed_ip_get_by_floating_address(self.ctxt, floating)
-        self._assertEqualObjects(fixed_ip, fixed_ip_ref)
+        self._assertEqualObjects(fixed_ip, fixed_ip_ref, ignored_keys=["floating_ips"])
 
     def test_fixed_ip_get_by_host(self):
         host_ips = {
@@ -398,10 +402,10 @@ class FixedIPTestCase(BaseInstanceTypeTestCase):
     #         if mock_first.call_count == 1:
     #             raise db_exc.DBDeadlock()
     #         else:
-    #             return objects.Instance(id=1, address=address, reserved=False,
+    #             return NovaInstance(id=1, address=address, reserved=False,
     #                                     instance_uuid=None, network_id=None)
     #
-    #     with mock.patch('sqlalchemy.orm.query.Query.first',
+    #     with mock.patch('rome.core.orm.query.Query.first',
     #                     side_effect=fake_first) as mock_first:
     #         db.fixed_ip_associate(self.ctxt, address, instance_uuid,
     #                               network_id=network['id'])
@@ -419,13 +423,13 @@ class FixedIPTestCase(BaseInstanceTypeTestCase):
     #
     #     def fake_first():
     #         if mock_first.call_count == 1:
-    #             return objects.Instance(id=2, address=address, reserved=False,
+    #             return NovaInstance(id=2, address=address, reserved=False,
     #                                     instance_uuid=None, network_id=None)
     #         else:
-    #             return objects.Instance(id=1, address=address, reserved=False,
+    #             return NovaInstance(id=1, address=address, reserved=False,
     #                                     instance_uuid=None, network_id=None)
     #
-    #     with mock.patch('sqlalchemy.orm.query.Query.first',
+    #     with mock.patch('rome.core.orm.query.Query.first',
     #                     side_effect=fake_first) as mock_first:
     #         db.fixed_ip_associate(self.ctxt, address, instance_uuid,
     #                               network_id=network['id'])
@@ -435,47 +439,47 @@ class FixedIPTestCase(BaseInstanceTypeTestCase):
     #     self.assertEqual(fixed_ip['instance_uuid'], instance_uuid)
     #     self.assertEqual(fixed_ip['network_id'], network['id'])
 
-    # def test_fixed_ip_associate_succeeds_retry_limit_exceeded(self):
-    #     instance_uuid = self._create_instance()
-    #     network = db.network_create_safe(self.ctxt, {})
-    #
-    #     address = self.create_fixed_ip()
-    #
-    #     def fake_first():
-    #         return objects.Instance(id=2, address=address, reserved=False,
-    #                                 instance_uuid=None, network_id=None)
-    #
-    #     with mock.patch('sqlalchemy.orm.query.Query.first',
-    #                     side_effect=fake_first) as mock_first:
-    #         self.assertRaises(exception.FixedIpAssociateFailed,
-    #                           db.fixed_ip_associate, self.ctxt, address,
-    #                           instance_uuid, network_id=network['id'])
-    #         # 5 reties + initial attempt
-    #         self.assertEqual(6, mock_first.call_count)
+    def test_fixed_ip_associate_succeeds_retry_limit_exceeded(self):
+        instance_uuid = self._create_instance()
+        network = db.network_create_safe(self.ctxt, {})
 
-    # def test_fixed_ip_associate_ip_not_in_network_with_no_retries(self):
-    #     instance_uuid = self._create_instance()
-    #
-    #     with mock.patch('sqlalchemy.orm.query.Query.first',
-    #                     return_value=None) as mock_first:
-    #         self.assertRaises(exception.FixedIpNotFoundForNetwork,
-    #                           db.fixed_ip_associate,
-    #                           self.ctxt, None, instance_uuid)
-    #         self.assertEqual(1, mock_first.call_count)
+        address = self.create_fixed_ip()
 
-    # def test_fixed_ip_associate_no_network_id_with_no_retries(self):
-    #     # Tests that trying to associate an instance to a fixed IP on a network
-    #     # but without specifying the network ID during associate will fail.
-    #     instance_uuid = self._create_instance()
-    #     network = db.network_create_safe(self.ctxt, {})
-    #     address = self.create_fixed_ip(network_id=network['id'])
-    #
-    #     with mock.patch('sqlalchemy.orm.query.Query.first',
-    #                     return_value=None) as mock_first:
-    #         self.assertRaises(exception.FixedIpNotFoundForNetwork,
-    #                           db.fixed_ip_associate,
-    #                           self.ctxt, address, instance_uuid)
-    #         self.assertEqual(1, mock_first.call_count)
+        def fake_first():
+            return NovaInstance(id=2, address=address, reserved=False,
+                                    instance_uuid=None, network_id=None)
+
+        with mock.patch('rome.core.orm.query.Query.first',
+                        side_effect=fake_first) as mock_first:
+            self.assertRaises(exception.FixedIpAssociateFailed,
+                              db.fixed_ip_associate, self.ctxt, address,
+                              instance_uuid, network_id=network['id'])
+            # 5 reties + initial attempt
+            self.assertEqual(6, mock_first.call_count)
+
+    def test_fixed_ip_associate_ip_not_in_network_with_no_retries(self):
+        instance_uuid = self._create_instance()
+
+        with mock.patch('rome.core.orm.query.Query.first',
+                        return_value=None) as mock_first:
+            self.assertRaises(exception.FixedIpNotFoundForNetwork,
+                              db.fixed_ip_associate,
+                              self.ctxt, None, instance_uuid)
+            self.assertEqual(1, mock_first.call_count)
+
+    def test_fixed_ip_associate_no_network_id_with_no_retries(self):
+        # Tests that trying to associate an instance to a fixed IP on a network
+        # but without specifying the network ID during associate will fail.
+        instance_uuid = self._create_instance()
+        network = db.network_create_safe(self.ctxt, {})
+        address = self.create_fixed_ip(network_id=network['id'])
+
+        with mock.patch('rome.core.orm.query.Query.first',
+                        return_value=None) as mock_first:
+            self.assertRaises(exception.FixedIpNotFoundForNetwork,
+                              db.fixed_ip_associate,
+                              self.ctxt, address, instance_uuid)
+            self.assertEqual(1, mock_first.call_count)
 
     def test_fixed_ip_associate_with_vif(self):
         instance_uuid = self._create_instance()
@@ -572,7 +576,7 @@ class FixedIPTestCase(BaseInstanceTypeTestCase):
     #             return {'network_id': network['id'], 'address': address,
     #                     'instance_uuid': None, 'host': None, 'id': 1}
     #
-    #     with mock.patch('sqlalchemy.orm.query.Query.first',
+    #     with mock.patch('rome.core.orm.query.Query.first',
     #                     side_effect=fake_first) as mock_first:
     #         db.fixed_ip_associate_pool(self.ctxt, network['id'], instance_uuid)
     #         self.assertEqual(2, mock_first.call_count)
@@ -590,7 +594,7 @@ class FixedIPTestCase(BaseInstanceTypeTestCase):
     #         return {'network_id': network['id'], 'address': 'invalid',
     #                 'instance_uuid': None, 'host': None, 'id': 1}
     #
-    #     with mock.patch('sqlalchemy.orm.query.Query.first',
+    #     with mock.patch('rome.core.orm.query.Query.first',
     #                     side_effect=fake_first) as mock_first:
     #         self.assertRaises(exception.FixedIpAssociateFailed,
     #                           db.fixed_ip_associate_pool, self.ctxt,
@@ -598,12 +602,12 @@ class FixedIPTestCase(BaseInstanceTypeTestCase):
     #         # 5 retries + initial attempt
     #         self.assertEqual(6, mock_first.call_count)
 
-    # def test_fixed_ip_create_same_address(self):
-    #     address = '192.168.1.5'
-    #     params = {'address': address}
-    #     db.fixed_ip_create(self.ctxt, params)
-    #     self.assertRaises(exception.FixedIpExists, db.fixed_ip_create,
-    #                       self.ctxt, params)
+    def test_fixed_ip_create_same_address(self):
+        address = '192.168.1.5'
+        params = {'address': address}
+        db.fixed_ip_create(self.ctxt, params)
+        self.assertRaises(exception.FixedIpExists, db.fixed_ip_create,
+                          self.ctxt, params)
 
     def test_fixed_ip_create_success(self):
         instance_uuid = self._create_instance()
@@ -685,33 +689,35 @@ class FixedIPTestCase(BaseInstanceTypeTestCase):
         for param, ip in zip(params, fixed_ip_data):
             self._assertEqualObjects(param, ip, ignored_keys)
 
-    # def test_fixed_ip_disassociate(self):
-    #     address = '192.168.1.5'
-    #     instance_uuid = self._create_instance()
-    #     network_id = db.network_create_safe(self.ctxt, {})['id']
-    #     values = {'address': '192.168.1.5', 'instance_uuid': instance_uuid}
-    #     vif = db.virtual_interface_create(self.ctxt, values)
-    #     param = {
-    #         'reserved': False,
-    #         'deleted': 0,
-    #         'leased': False,
-    #         'host': '127.0.0.1',
-    #         'address': address,
-    #         'allocated': False,
-    #         'instance_uuid': instance_uuid,
-    #         'network_id': network_id,
-    #         'virtual_interface_id': vif['id']
-    #     }
-    #     db.fixed_ip_create(self.ctxt, param)
-    #
-    #     db.fixed_ip_disassociate(self.ctxt, address)
-    #     fixed_ip_data = db.fixed_ip_get_by_address(self.ctxt, address)
-    #     ignored_keys = ['created_at', 'id', 'deleted_at',
-    #                     'updated_at', 'instance_uuid',
-    #                     'virtual_interface_id', 'floating_ips']
-    #     self._assertEqualObjects(param, fixed_ip_data, ignored_keys)
-    #     self.assertIsNone(fixed_ip_data['instance_uuid'])
-    #     self.assertIsNone(fixed_ip_data['virtual_interface_id'])
+    def test_fixed_ip_disassociate(self):
+        address = '192.168.1.5'
+        instance_uuid = self._create_instance()
+        network_id = db.network_create_safe(self.ctxt, {})['id']
+        values = {'address': '192.168.1.5', 'instance_uuid': instance_uuid}
+        vif = db.virtual_interface_create(self.ctxt, values)
+        param = {
+            'reserved': False,
+            'deleted': 0,
+            'leased': False,
+            'host': '127.0.0.1',
+            'address': address,
+            'allocated': False,
+            'instance_uuid': instance_uuid,
+            'network_id': network_id,
+            'virtual_interface_id': vif['id']
+        }
+        db.fixed_ip_create(self.ctxt, param)
+        from rome.driver.database_driver import get_driver
+        driver = get_driver()
+
+        db.fixed_ip_disassociate(self.ctxt, address)
+        fixed_ip_data = db.fixed_ip_get_by_address(self.ctxt, address)
+        ignored_keys = ['created_at', 'id', 'deleted_at',
+                        'updated_at', 'instance_uuid',
+                        'virtual_interface_id', 'floating_ips']
+        self._assertEqualObjects(param, fixed_ip_data, ignored_keys)
+        self.assertIsNone(fixed_ip_data['instance_uuid'])
+        self.assertIsNone(fixed_ip_data['virtual_interface_id'])
 
     def test_fixed_ip_get_not_found_exception(self):
         self.assertRaises(exception.FixedIpNotFound,
